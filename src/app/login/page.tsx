@@ -1,12 +1,47 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BookOpen, GraduationCap, Users } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const router = useRouter()
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.push('/dashboard')
+      }
+    }
+    checkUser()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        // Verify profile exists
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_active')
+          .eq('auth_user_id', session.user.id)
+          .maybeSingle()
+
+        if (!profile || !profile.is_active) {
+          await supabase.auth.signOut()
+          setError('Unauthorized email. Contact admin to get access.')
+          setLoading(false)
+        } else {
+          router.push('/dashboard')
+        }
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
 
   const handleGoogleLogin = async () => {
     setLoading(true)
@@ -16,7 +51,7 @@ export default function Login() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/api/auth/callback`
+          redirectTo: `${window.location.origin}/auth/callback`
         }
       })
 
