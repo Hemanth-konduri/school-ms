@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { createServerClient } from '@supabase/ssr'
 
 export async function POST(req: NextRequest) {
   try {
     const { email, fullName, roleId } = await req.json()
 
-    const { data: existing } = await supabaseAdmin
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_KEY!,
+      {
+        cookies: {},
+      }
+    )
+
+    const { data: existing } = await supabase
       .from('profiles')
       .select('id')
       .eq('email', email)
@@ -15,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email already exists' }, { status: 400 })
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('profiles')
       .insert({
         email,
