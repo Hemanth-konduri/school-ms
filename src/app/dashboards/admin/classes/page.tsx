@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CalendarDays, LayoutList, ChevronRight } from 'lucide-react'
+import { ArrowLeft, CalendarDays, LayoutList, BookOpen, CalendarRange, AlertTriangle, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function ClassesPage() {
@@ -10,25 +10,58 @@ export default function ClassesPage() {
   const sections = [
     {
       step: '01',
-      title: 'Create Class Schedule',
-      desc: 'Add a class slot: select batch, semester, subject, assigned teacher, day, time, and room.',
-      icon: CalendarDays,
-      color: 'bg-indigo-50 hover:bg-indigo-100',
-      iconBg: 'bg-indigo-600',
-      link: '/dashboards/admin/classes/create-schedule',
-      tag: 'Schedule',
-      tagColor: 'bg-indigo-100 text-indigo-700',
+      title: 'Academic Year Setup',
+      desc: 'Define the academic year — start/end dates, working days, working hours. This is the foundation.',
+      icon: CalendarRange,
+      color: 'bg-blue-50 hover:bg-blue-100',
+      iconBg: 'bg-blue-600',
+      link: '/dashboards/admin/classes/academic-year',
+      tag: 'Foundation',
+      tagColor: 'bg-blue-100 text-blue-700',
     },
     {
       step: '02',
-      title: 'View Timetable',
-      desc: 'Browse batch-wise or teacher-wise weekly timetable view.',
+      title: 'Semester Planning',
+      desc: 'Define semester start/end dates per batch, total teaching weeks, and working hours.',
+      icon: BookOpen,
+      color: 'bg-teal-50 hover:bg-teal-100',
+      iconBg: 'bg-teal-600',
+      link: '/dashboards/admin/classes/semester-plan',
+      tag: 'Step 2',
+      tagColor: 'bg-teal-100 text-teal-700',
+    },
+    {
+      step: '03',
+      title: 'Weekly Template Builder',
+      desc: 'Create the repeating weekly timetable. Define which subject is taught on which day and time.',
+      icon: CalendarDays,
+      color: 'bg-indigo-50 hover:bg-indigo-100',
+      iconBg: 'bg-indigo-600',
+      link: '/dashboards/admin/classes/timetable-builder',
+      tag: 'Core',
+      tagColor: 'bg-indigo-100 text-indigo-700',
+    },
+    {
+      step: '04',
+      title: 'View Calendar Timetable',
+      desc: 'Full calendar view — batch-wise or teacher-wise. Navigate by week or day. Update lesson topics.',
       icon: LayoutList,
-      color: 'bg-pink-50 hover:bg-pink-100',
-      iconBg: 'bg-pink-600',
-      link: '/dashboards/admin/classes/timetable',
-      tag: 'View',
-      tagColor: 'bg-pink-100 text-pink-700',
+      color: 'bg-violet-50 hover:bg-violet-100',
+      iconBg: 'bg-violet-600',
+      link: '/dashboards/admin/classes/calendar',
+      tag: 'Calendar',
+      tagColor: 'bg-violet-100 text-violet-700',
+    },
+    {
+      step: '05',
+      title: 'Holidays & Exceptions',
+      desc: 'Mark exam periods, holidays, semester breaks. These are automatically excluded from timetables.',
+      icon: AlertTriangle,
+      color: 'bg-orange-50 hover:bg-orange-100',
+      iconBg: 'bg-orange-500',
+      link: '/dashboards/admin/classes/exceptions',
+      tag: 'Step 5',
+      tagColor: 'bg-orange-100 text-orange-700',
     },
   ]
 
@@ -47,7 +80,7 @@ export default function ClassesPage() {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-800">Classes & Scheduling</h1>
-              <p className="text-gray-500 text-sm mt-1">Create timetables and manage class schedules</p>
+              <p className="text-gray-500 text-sm mt-1">Full academic calendar — year structure, semester planning, timetable builder</p>
             </div>
           </div>
         </div>
