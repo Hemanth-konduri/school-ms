@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Building2, Layers, Users, GitBranch, ArrowLeft, ChevronRight } from 'lucide-react'
+import { Building2, Layers, Users, GitBranch, ArrowLeft, ChevronRight, BookMarked } from 'lucide-react'
 
 export default function AcademicPage() {
   const router = useRouter()
@@ -52,16 +52,28 @@ export default function AcademicPage() {
       tagColor: 'bg-violet-100 text-violet-700',
     },
     {
-  step: '05',
-  title: 'View Academic Hierarchy',
-  desc: 'View the complete academic hierarchy of schools, programs, groups, and batches.',
-  icon: Layers,
-  color: 'bg-cyan-50 hover:bg-cyan-100',
-  iconBg: 'bg-cyan-600',
-  link: '/dashboards/admin/academics/view-hierarchy',
-  tag: 'View',
-  tagColor: 'bg-cyan-100 text-cyan-700',
+      step: '05',
+      title: 'View Academic Hierarchy',
+      desc: 'View the complete academic hierarchy of schools, programs, groups, and batches.',
+      icon: Layers,
+      color: 'bg-cyan-50 hover:bg-cyan-100',
+      iconBg: 'bg-cyan-600',
+      link: '/dashboards/admin/academics/view-hierarchy',
+      tag: 'View',
+      tagColor: 'bg-cyan-100 text-cyan-700',
 },
+{
+      step: '05',
+      title: 'Manage Subjects',
+      desc: 'Create semester-wise subjects linked to batches. Required before creating timetables.',
+      icon: BookMarked,
+      color: 'bg-teal-50 hover:bg-teal-100',
+      iconBg: 'bg-teal-600',
+      link: '/dashboards/admin/academics/subjects',
+      tag: 'Step 5',
+      tagColor: 'bg-teal-100 text-teal-700',
+
+}
   ]
 
   return (
