@@ -198,7 +198,7 @@ export default function BatchesPage() {
             </div>
             <div>
               <label className={labelClass}>School <span className="text-red-500">*</span></label>
-              <Select value={form.school_id} onValueChange={(v) => set('school_id', v)} className="w-full">
+              <Select value={form.school_id} onValueChange={(v) => set('school_id', v)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="-- Select School --" />
                 </SelectTrigger>
