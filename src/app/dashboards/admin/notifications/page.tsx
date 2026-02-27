@@ -427,7 +427,7 @@ export default function NotificationsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {getFilteredPrograms().length > 0 ? (
-                          getFilteredPrograms().map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)
+                          getFilteredPrograms().map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)
                         ) : (
                           <div className="p-2 text-sm text-gray-500">No programs available</div>
                         )}
@@ -443,7 +443,7 @@ export default function NotificationsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {getFilteredGroups().length > 0 ? (
-                          getFilteredGroups().map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)
+                          getFilteredGroups().map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)
                         ) : (
                           <div className="p-2 text-sm text-gray-500">No groups available</div>
                         )}
@@ -459,7 +459,7 @@ export default function NotificationsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {getFilteredBatches().length > 0 ? (
-                          getFilteredBatches().map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)
+                          getFilteredBatches().map((b: any) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)
                         ) : (
                           <div className="p-2 text-sm text-gray-500">No batches available</div>
                         )}
