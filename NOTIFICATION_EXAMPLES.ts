@@ -79,7 +79,7 @@ const getUserNotifications = async () => {
   const response = await fetch('/api/notifications/list?unread_only=false')
   const { notifications } = await response.json()
   
-  notifications.forEach(notif => {
+  notifications.forEach((notif: any) => {
     console.log({
       title: notif.notifications.title,
       isRead: notif.is_read,
