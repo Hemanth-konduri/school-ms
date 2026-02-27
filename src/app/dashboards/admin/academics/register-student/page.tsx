@@ -136,7 +136,7 @@ export default function RegisterStudentPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className={labelClass}>School <span className="text-red-500">*</span></label>
-                <Select value={form.school_id} onValueChange={(v) => set('school_id', v)} className="w-full">
+                <Select value={form.school_id} onValueChange={(v) => set('school_id', v)} >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="-- Select School --" />
                   </SelectTrigger>
@@ -147,7 +147,7 @@ export default function RegisterStudentPage() {
               </div>
               <div>
                 <label className={labelClass}>Program <span className="text-red-500">*</span></label>
-                <Select value={form.program_id} onValueChange={(v) => set('program_id', v)} disabled={!form.school_id} className="w-full">
+                <Select value={form.program_id} onValueChange={(v) => set('program_id', v)} disabled={!form.school_id} >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="-- Select Program --" />
                   </SelectTrigger>
@@ -158,7 +158,7 @@ export default function RegisterStudentPage() {
               </div>
               <div>
                 <label className={labelClass}>Group / Department <span className="text-red-500">*</span></label>
-                <Select value={form.group_id} onValueChange={(v) => set('group_id', v)} disabled={!form.program_id} className="w-full">
+                <Select value={form.group_id} onValueChange={(v) => set('group_id', v)} disabled={!form.program_id} >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="-- Select Group --" />
                   </SelectTrigger>

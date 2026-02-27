@@ -8,7 +8,32 @@ import {
   BookOpen, Building2, Search, X,
   BarChart3, CheckCircle2, Hash, Mail, Phone, User
 } from 'lucide-react'
+
+// shadcn components
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 interface School { id: string; name: string }
 interface Program { id: string; name: string }
@@ -124,20 +149,26 @@ export default function ViewHierarchyPage() {
     )
   }
 
-  const selectClass = "border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-
   return (
     <div className="min-h-screen bg-[#f5f1ea]">
       {/* Header */}
       <div className="relative bg-gradient-to-br from-[#faf8f3] to-[#f0ebe0] shadow-md overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: `linear-gradient(#666 1px, transparent 1px), linear-gradient(90deg, #666 1px, transparent 1px)`, backgroundSize: '30px 30px' }} />
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage: `linear-gradient(#666 1px, transparent 1px), linear-gradient(90deg, #666 1px, transparent 1px)`,
+            backgroundSize: '30px 30px',
+          }}
+        />
         <div className="relative max-w-6xl mx-auto px-8 py-10">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => router.push('/dashboards/admin/academics')}
-            className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors mb-6 text-sm"
+            className="flex items-center gap-2 text-gray-500 hover:text-gray-800 mb-6 px-0 hover:bg-transparent"
           >
             <ArrowLeft className="h-4 w-4" /> Back to Academic
-          </button>
+          </Button>
+
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-cyan-600 flex items-center justify-center shadow-lg">
@@ -148,6 +179,7 @@ export default function ViewHierarchyPage() {
                 <p className="text-gray-500 text-sm mt-1">Browse batches, students, and academic structure</p>
               </div>
             </div>
+
             {fetched && (
               <div className="flex gap-4">
                 <div className="bg-white/70 backdrop-blur px-5 py-3 shadow-sm text-center">
@@ -165,99 +197,134 @@ export default function ViewHierarchyPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-8 py-8">
-        {/* Filters */}
-        <div className="bg-white shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-              <Filter className="h-4 w-4 text-cyan-600" /> Filters
+
+        {/* Filters Card */}
+        <Card className="mb-6 rounded-none shadow-sm border-gray-100">
+          <CardHeader className="pb-3 px-6 pt-5">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <Filter className="h-4 w-4 text-cyan-600" /> Filters
+              </CardTitle>
+              {(filters.school_id || filters.program_id || filters.group_id || filters.academic_year) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 h-auto py-1 px-2"
+                >
+                  <X className="h-3 w-3 mr-1" /> Clear All
+                </Button>
+              )}
             </div>
-            {(filters.school_id || filters.program_id || filters.group_id || filters.academic_year) && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium"
+          </CardHeader>
+          <CardContent className="px-6 pb-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+
+              {/* School */}
+              <Select
+                value={filters.school_id || 'all'}
+                onValueChange={v => setFilter('school_id', v === 'all' ? '' : v)}
               >
-                <X className="h-3 w-3" /> Clear All
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            <select
-              value={filters.school_id}
-              onChange={e => setFilter('school_id', e.target.value)}
-              className={selectClass}
-            >
-              <option value="">All Schools</option>
-              {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+                <SelectTrigger className="rounded-none border-gray-200 focus:ring-cyan-400 bg-white">
+                  <SelectValue placeholder="All Schools" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Schools</SelectItem>
+                  {schools.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <select
-              value={filters.program_id}
-              onChange={e => setFilter('program_id', e.target.value)}
-              disabled={!filters.school_id}
-              className={selectClass}
-            >
-              <option value="">All Programs</option>
-              {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+              {/* Program */}
+              <Select
+                value={filters.program_id || 'all'}
+                onValueChange={v => setFilter('program_id', v === 'all' ? '' : v)}
+                disabled={!filters.school_id}
+              >
+                <SelectTrigger className="rounded-none border-gray-200 focus:ring-cyan-400 bg-white">
+                  <SelectValue placeholder="All Programs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Programs</SelectItem>
+                  {programs.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <select
-              value={filters.group_id}
-              onChange={e => setFilter('group_id', e.target.value)}
-              disabled={!filters.program_id}
-              className={selectClass}
-            >
-              <option value="">All Groups</option>
-              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
+              {/* Group */}
+              <Select
+                value={filters.group_id || 'all'}
+                onValueChange={v => setFilter('group_id', v === 'all' ? '' : v)}
+                disabled={!filters.program_id}
+              >
+                <SelectTrigger className="rounded-none border-gray-200 focus:ring-cyan-400 bg-white">
+                  <SelectValue placeholder="All Groups" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Groups</SelectItem>
+                  {groups.map(g => (
+                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Input
-              type="text"
-              value={filters.academic_year}
-              onChange={e => setFilter('academic_year', e.target.value)}
-              placeholder="Academic Year"
-              className="rounded-none border-gray-200 focus-visible:ring-cyan-400 text-sm"
-            />
-
-            <button
-              type="button"
-              onClick={fetchBatches}
-              className="bg-cyan-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-cyan-700 transition-colors flex items-center justify-center gap-2"
-            >
-              {loading
-                ? <span className="inline-block animate-spin">↻</span>
-                : <Filter className="h-4 w-4" />
-              }
-              Apply
-            </button>
-          </div>
-
-          {/* Search within results */}
-          {fetched && (
-            <div className="mt-3 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
+              {/* Academic Year */}
               <Input
                 type="text"
-                value={filters.search}
-                onChange={e => setFilter('search', e.target.value)}
-                placeholder="Search batches by name, school, program, group..."
-                className="pl-9 rounded-none border-gray-200 focus-visible:ring-cyan-400 bg-gray-50 text-sm"
+                value={filters.academic_year}
+                onChange={e => setFilter('academic_year', e.target.value)}
+                placeholder="Academic Year"
+                className="rounded-none border-gray-200 focus-visible:ring-cyan-400 bg-white"
               />
+
+              {/* Apply */}
+              <Button
+                type="button"
+                onClick={fetchBatches}
+                className="bg-cyan-600 hover:bg-cyan-700 text-white rounded-none font-semibold"
+              >
+                {loading
+                  ? <span className="inline-block animate-spin mr-2">↻</span>
+                  : <Filter className="h-4 w-4 mr-2" />
+                }
+                Apply
+              </Button>
             </div>
-          )}
-        </div>
+
+            {/* Global search */}
+            {fetched && (
+              <div className="mt-3 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
+                <Input
+                  type="text"
+                  value={filters.search}
+                  onChange={e => setFilter('search', e.target.value)}
+                  placeholder="Search batches by name, school, program, group..."
+                  className="pl-9 rounded-none border-gray-200 focus-visible:ring-cyan-400 bg-gray-50"
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Results */}
         {loading ? (
-          <div className="bg-white shadow-sm p-16 text-center">
-            <div className="text-4xl mb-3 animate-spin inline-block text-cyan-500">↻</div>
-            <p className="text-gray-400 text-sm">Loading batches...</p>
-          </div>
+          <Card className="rounded-none shadow-sm border-gray-100">
+            <CardContent className="p-16 text-center">
+              <div className="text-4xl mb-3 animate-spin inline-block text-cyan-500">↻</div>
+              <p className="text-gray-400 text-sm">Loading batches...</p>
+            </CardContent>
+          </Card>
         ) : !fetched ? null : filteredBatches.length === 0 ? (
-          <div className="bg-white shadow-sm p-16 text-center">
-            <Layers className="h-12 w-12 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">No batches found</p>
-            <p className="text-gray-400 text-sm mt-1">Try adjusting your filters or create a batch first.</p>
-          </div>
+          <Card className="rounded-none shadow-sm border-gray-100">
+            <CardContent className="p-16 text-center">
+              <Layers className="h-12 w-12 text-gray-200 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">No batches found</p>
+              <p className="text-gray-400 text-sm mt-1">Try adjusting your filters or create a batch first.</p>
+            </CardContent>
+          </Card>
         ) : (
           <div className="space-y-4">
             {filteredBatches.map(batch => {
@@ -266,8 +333,9 @@ export default function ViewHierarchyPage() {
               const studentCount = batch.students.length
 
               return (
-                <div key={batch.id} className="bg-white shadow-sm overflow-hidden">
-                  {/* Batch Header — plain <button> for correct layout */}
+                <Card key={batch.id} className="rounded-none shadow-sm border-gray-100 overflow-hidden p-0">
+
+                  {/* Batch Header */}
                   <button
                     type="button"
                     onClick={() => {
@@ -282,11 +350,11 @@ export default function ViewHierarchyPage() {
                         <div>
                           <div className="flex items-center gap-3 mb-1">
                             <h3 className="text-lg font-bold text-gray-800">{batch.name}</h3>
-                            <span className="text-xs bg-cyan-50 text-cyan-700 border border-cyan-100 px-2 py-0.5 font-semibold">
+                            <Badge variant="outline" className="text-xs text-cyan-700 border-cyan-200 bg-cyan-50 font-semibold">
                               {batch.academic_year}
-                            </span>
+                            </Badge>
                           </div>
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                             <span className="flex items-center gap-1">
                               <Building2 className="h-3 w-3" />
                               {(batch.schools as any)?.name || '—'}
@@ -311,10 +379,10 @@ export default function ViewHierarchyPage() {
                             <div className="text-xl font-black text-gray-800">{studentCount}</div>
                             <div className="text-xs text-gray-400">Students</div>
                           </div>
-                          <div className="text-xs bg-green-50 text-green-700 px-2 py-1 font-semibold border border-green-100 flex items-center gap-1">
+                          <Badge className="bg-green-50 text-green-700 border border-green-100 hover:bg-green-50 text-xs font-semibold flex items-center gap-1">
                             <CheckCircle2 className="h-3 w-3" />
                             Active
-                          </div>
+                          </Badge>
                         </div>
                         <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
                           <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -322,7 +390,7 @@ export default function ViewHierarchyPage() {
                       </div>
                     </div>
 
-                    {/* Relative progress bar */}
+                    {/* Progress bar */}
                     <div className="mt-4 flex items-center gap-3">
                       <div className="flex-1 bg-gray-100 h-1.5">
                         <div
@@ -334,20 +402,21 @@ export default function ViewHierarchyPage() {
                     </div>
                   </button>
 
-                  {/* Expanded detail */}
+                  {/* Expanded Section */}
                   {isExpanded && (
                     <div className="border-t border-gray-100">
-                      {/* Info row */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border-b border-gray-100">
-                        <div className="p-4 border-r border-gray-100">
+
+                      {/* Batch Detail Info */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
+                        <div className="p-4">
                           <div className="text-xs text-gray-400 mb-0.5">School</div>
                           <div className="text-sm font-semibold text-gray-700">{(batch.schools as any)?.name || '—'}</div>
                         </div>
-                        <div className="p-4 border-r border-gray-100">
+                        <div className="p-4">
                           <div className="text-xs text-gray-400 mb-0.5">Program</div>
                           <div className="text-sm font-semibold text-gray-700">{(batch.programs as any)?.name || '—'}</div>
                         </div>
-                        <div className="p-4 border-r border-gray-100">
+                        <div className="p-4">
                           <div className="text-xs text-gray-400 mb-0.5">Group / Dept</div>
                           <div className="text-sm font-semibold text-gray-700">{(batch.groups as any)?.name || '—'}</div>
                         </div>
@@ -359,14 +428,14 @@ export default function ViewHierarchyPage() {
                         </div>
                       </div>
 
-                      {/* Per-batch student search */}
+                      {/* Student search bar */}
                       <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
                           <Users className="h-4 w-4 text-cyan-600" />
                           Students in this batch
-                          <span className="bg-cyan-50 text-cyan-700 text-xs px-2 py-0.5 font-semibold border border-cyan-100">
+                          <Badge variant="outline" className="text-xs text-cyan-700 border-cyan-200 bg-cyan-50 font-semibold">
                             {studentCount}
-                          </span>
+                          </Badge>
                         </div>
                         {studentCount > 0 && (
                           <div className="relative w-64">
@@ -376,12 +445,13 @@ export default function ViewHierarchyPage() {
                               value={studentSearch[batch.id] || ''}
                               onChange={e => setStudentSearch(prev => ({ ...prev, [batch.id]: e.target.value }))}
                               placeholder="Search students..."
-                              className="pl-8 rounded-none border-gray-200 focus-visible:ring-cyan-400 bg-gray-50 text-xs"
+                              className="pl-8 rounded-none border-gray-200 focus-visible:ring-cyan-400 bg-gray-50 text-xs h-8"
                             />
                           </div>
                         )}
                       </div>
 
+                      {/* Students Table */}
                       {studentCount === 0 ? (
                         <div className="p-10 text-center text-gray-400 text-sm">
                           <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -389,57 +459,57 @@ export default function ViewHierarchyPage() {
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="bg-gray-50 border-b border-gray-100">
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-gray-50 hover:bg-gray-50">
+                                <TableHead className="text-xs font-bold text-gray-500 uppercase tracking-wider w-12">#</TableHead>
+                                <TableHead className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                                   <span className="flex items-center gap-1"><User className="h-3 w-3" /> Name</span>
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                </TableHead>
+                                <TableHead className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                                   <span className="flex items-center gap-1"><Hash className="h-3 w-3" /> Admission No.</span>
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                </TableHead>
+                                <TableHead className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                                   <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> Email</span>
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                </TableHead>
+                                <TableHead className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                                   <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</span>
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
                               {filteredStudents.length === 0 ? (
-                                <tr>
-                                  <td colSpan={5} className="px-6 py-8 text-center text-gray-400 text-xs">
+                                <TableRow>
+                                  <TableCell colSpan={5} className="text-center text-gray-400 text-xs py-8">
                                     No students match your search.
-                                  </td>
-                                </tr>
+                                  </TableCell>
+                                </TableRow>
                               ) : (
                                 filteredStudents.map((student, idx) => (
-                                  <tr key={student.id} className="border-b border-gray-50 hover:bg-cyan-50/30 transition-colors">
-                                    <td className="px-6 py-3.5 text-gray-400 text-xs font-medium">{idx + 1}</td>
-                                    <td className="px-6 py-3.5">
+                                  <TableRow key={student.id} className="hover:bg-cyan-50/30 transition-colors">
+                                    <TableCell className="text-gray-400 text-xs font-medium">{idx + 1}</TableCell>
+                                    <TableCell>
                                       <div className="flex items-center gap-2">
                                         <div className="w-7 h-7 bg-cyan-100 flex items-center justify-center text-xs font-bold text-cyan-700 flex-shrink-0">
                                           {student.name.charAt(0).toUpperCase()}
                                         </div>
-                                        <span className="font-semibold text-gray-800">{student.name}</span>
+                                        <span className="font-semibold text-gray-800 text-sm">{student.name}</span>
                                       </div>
-                                    </td>
-                                    <td className="px-6 py-3.5">
-                                      <span className="bg-gray-100 text-gray-600 px-2 py-0.5 text-xs font-mono">
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="secondary" className="font-mono text-xs font-normal">
                                         {student.admission_number}
-                                      </span>
-                                    </td>
-                                    <td className="px-6 py-3.5 text-gray-500 text-xs">{student.email}</td>
-                                    <td className="px-6 py-3.5 text-gray-500 text-xs">
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-gray-500 text-xs">{student.email}</TableCell>
+                                    <TableCell className="text-gray-500 text-xs">
                                       {student.phone || <span className="text-gray-300">—</span>}
-                                    </td>
-                                  </tr>
+                                    </TableCell>
+                                  </TableRow>
                                 ))
                               )}
-                            </tbody>
-                          </table>
+                            </TableBody>
+                          </Table>
 
                           {filteredStudents.length > 0 && (
                             <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-400 flex items-center justify-between">
@@ -451,7 +521,7 @@ export default function ViewHierarchyPage() {
                       )}
                     </div>
                   )}
-                </div>
+                </Card>
               )
             })}
           </div>
