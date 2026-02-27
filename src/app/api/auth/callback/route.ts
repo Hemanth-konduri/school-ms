@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url)
   const code = searchParams.get('code')
-  const next = '/dashboard'
+  const next = '/dashboards/admin'
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=no_code`)

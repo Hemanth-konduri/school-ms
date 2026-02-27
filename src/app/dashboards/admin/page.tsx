@@ -10,6 +10,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [authError, setAuthError] = useState('')
   const [greeting, setGreeting] = useState('')
 
   useEffect(() => {
@@ -21,16 +22,30 @@ export default function DashboardPage() {
   }, [])
 
   const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.replace('/login'); return }
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*, roles(name)')
-      .eq('auth_user_id', user.id)
-      .single()
-    if (!profileData) { router.replace('/login'); return }
-    setProfile({ ...profileData, avatar_url: user.user_metadata?.avatar_url })
-    setLoading(false)
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError) throw userError
+      if (!user) { router.replace('/login'); return }
+
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*, roles(name)')
+        .eq('auth_user_id', user.id)
+        .single()
+
+      if (profileError || !profileData) {
+        router.replace('/login')
+        return
+      }
+
+      setProfile({ ...profileData, avatar_url: user.user_metadata?.avatar_url })
+    } catch (error: any) {
+      console.error('Dashboard auth check failed:', error)
+      setAuthError(error?.message || 'Unable to verify session')
+      router.replace('/login')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleLogout = async () => {
@@ -51,6 +66,7 @@ export default function DashboardPage() {
   ]
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#f5f1ea]">Loading...</div>
+  if (authError) return <div className="min-h-screen flex items-center justify-center bg-[#f5f1ea] text-red-600">{authError}</div>
 
   return (
     <div className="min-h-screen bg-[#f5f1ea]">

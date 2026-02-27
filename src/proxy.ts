@@ -30,7 +30,7 @@ export default async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Protect dashboard
-  if (pathname.startsWith('/dashboard')) {
+  if (pathname.startsWith('/dashboards')) {
     if (!user) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
@@ -38,12 +38,12 @@ export default async function proxy(request: NextRequest) {
 
   // Prevent logged in users from accessing login
   if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL('/dashboards/admin', request.url))
   }
 
   return response
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login'],
+  matcher: ['/dashboards/:path*', '/login'],
 }
