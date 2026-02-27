@@ -51,6 +51,17 @@ export default function AcademicPage() {
       tag: 'Final Step',
       tagColor: 'bg-violet-100 text-violet-700',
     },
+    {
+  step: '05',
+  title: 'View Academic Hierarchy',
+  desc: 'View the complete academic hierarchy of schools, programs, groups, and batches.',
+  icon: Layers,
+  color: 'bg-cyan-50 hover:bg-cyan-100',
+  iconBg: 'bg-cyan-600',
+  link: '/dashboards/admin/academics/view-hierarchy',
+  tag: 'View',
+  tagColor: 'bg-cyan-100 text-cyan-700',
+},
   ]
 
   return (
@@ -66,7 +77,7 @@ export default function AcademicPage() {
         />
         <div className="relative max-w-5xl mx-auto px-8 py-10">
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push('/dashboards/admin')}
             className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors mb-6 text-sm"
           >
             <ArrowLeft className="h-4 w-4" />

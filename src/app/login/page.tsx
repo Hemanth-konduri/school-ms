@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BookOpen, GraduationCap, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 
 export default function Login() {
   const [loading, setLoading] = useState(false)
@@ -35,7 +36,7 @@ export default function Login() {
           setError('Unauthorized email. Contact admin to get access.')
           setLoading(false)
         } else {
-          router.push('/dashboard')
+          router.push('/dashboards/admin')
         }
       }
     })
@@ -81,7 +82,7 @@ export default function Login() {
             <p className="text-slate-600">Sign in to access your school management dashboard and streamline your educational operations</p>
           </div>
           
-          <button
+          <Button
             onClick={handleGoogleLogin}
             disabled={loading}
             className="w-full flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 text-white font-semibold py-4 px-6 shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
@@ -93,12 +94,13 @@ export default function Login() {
               <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
             {loading ? 'Redirecting...' : 'Sign in with Google'}
-          </button>
+          </Button>
           
           {error && (
-            <div className="mt-4 p-4 bg-red-50 border-2 border-red-200">
-              <p className="text-sm text-red-700 font-medium">{error}</p>
-            </div>
+            <Alert variant="destructive" className="mt-4">
+              <AlertTitle>Authentication Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
         </div>
       </div>

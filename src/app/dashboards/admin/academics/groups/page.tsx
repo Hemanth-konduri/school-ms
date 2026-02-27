@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, X, GitBranch, CheckCircle, Trash2 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 
 interface School { id: string; name: string }
 interface Program { id: string; name: string }
@@ -80,9 +84,9 @@ export default function GroupsPage() {
       <div className="relative bg-gradient-to-br from-[#faf8f3] to-[#f0ebe0] shadow-md overflow-hidden">
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: `linear-gradient(#666 1px, transparent 1px), linear-gradient(90deg, #666 1px, transparent 1px)`, backgroundSize: '30px 30px' }} />
         <div className="relative max-w-5xl mx-auto px-8 py-10">
-          <button onClick={() => router.push('/dashboard/academic')} className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors mb-6 text-sm">
+          <Button variant="ghost" size="sm" onClick={() => router.push('/dashboards/admin/academics')} className="flex items-center gap-2 mb-6">
             <ArrowLeft className="h-4 w-4" /> Back to Academic
-          </button>
+          </Button>
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-green-600 flex items-center justify-center shadow-lg">
               <GitBranch className="h-7 w-7 text-white" />
@@ -100,36 +104,42 @@ export default function GroupsPage() {
         <div className="bg-white shadow-sm p-8">
           <h2 className="text-lg font-bold text-gray-800 mb-6">New Groups</h2>
 
-          {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>}
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 text-sm flex items-center gap-2">
+            <Alert className="mb-4 flex items-center gap-2">
               <CheckCircle className="h-4 w-4" /> {success}
-            </div>
+            </Alert>
           )}
 
           <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Select School <span className="text-red-500">*</span></label>
-            <select
-              value={selectedSchool}
-              onChange={e => setSelectedSchool(e.target.value)}
-              className="w-full border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 bg-gray-50"
-            >
-              <option value="">-- Select School --</option>
-              {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <Select value={selectedSchool} onValueChange={(v) => setSelectedSchool(v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="-- Select School --" />
+              </SelectTrigger>
+              <SelectContent>
+                {schools.map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Select Program <span className="text-red-500">*</span></label>
-            <select
-              value={selectedProgram}
-              onChange={e => setSelectedProgram(e.target.value)}
-              disabled={!selectedSchool}
-              className="w-full border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 bg-gray-50 disabled:opacity-50"
-            >
-              <option value="">-- Select Program --</option>
-              {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <Select value={selectedProgram} onValueChange={(v) => setSelectedProgram(v)} disabled={!selectedSchool}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="-- Select Program --" />
+              </SelectTrigger>
+              <SelectContent>
+                {programs.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
             {selectedSchool && programs.length === 0 && (
               <p className="text-xs text-orange-500 mt-1">No programs found. Add programs to this school first.</p>
             )}
@@ -140,33 +150,28 @@ export default function GroupsPage() {
             <div className="space-y-2">
               {groups.map((g, i) => (
                 <div key={i} className="flex gap-2">
-                  <input
-                    type="text"
+                  <Input
+                    className="flex-1"
                     value={g}
                     onChange={e => updateGroup(i, e.target.value)}
                     placeholder="e.g. CSE, ECE, Mechanical"
-                    className="flex-1 border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 bg-gray-50"
                   />
                   {groups.length > 1 && (
-                    <button onClick={() => removeGroupField(i)} className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                    <Button variant="ghost" size="icon" onClick={() => removeGroupField(i)} className="text-gray-400 hover:text-red-500 hover:bg-red-50">
                       <X className="h-4 w-4" />
-                    </button>
+                    </Button>
                   )}
                 </div>
               ))}
             </div>
-            <button onClick={addGroupField} className="mt-3 flex items-center gap-1 text-sm text-green-600 hover:text-green-800 font-medium">
+            <Button variant="link" size="sm" onClick={addGroupField} className="mt-3 flex items-center gap-1">
               <Plus className="h-4 w-4" /> Add Group
-            </button>
+            </Button>
           </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="w-full bg-green-600 text-white py-3 font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
-          >
+          <Button className="w-full" disabled={loading} onClick={handleSubmit}>
             {loading ? 'Creating...' : 'Create Groups'}
-          </button>
+          </Button>
         </div>
 
         {/* Existing Groups */}
@@ -184,9 +189,9 @@ export default function GroupsPage() {
                       {(g.schools as any)?.name} → {(g.programs as any)?.name}
                     </div>
                   </div>
-                  <button onClick={() => deleteGroup(g.id)} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
+                  <Button variant="ghost" size="icon" onClick={() => deleteGroup(g.id)} className="text-gray-300 hover:text-red-500">
                     <Trash2 className="h-4 w-4" />
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>

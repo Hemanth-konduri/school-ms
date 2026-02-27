@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Layers, CheckCircle, Search, Users } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface School { id: string; name: string }
 interface Program { id: string; name: string }
@@ -141,9 +146,9 @@ export default function BatchesPage() {
       <div className="relative bg-gradient-to-br from-[#faf8f3] to-[#f0ebe0] shadow-md overflow-hidden">
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: `linear-gradient(#666 1px, transparent 1px), linear-gradient(90deg, #666 1px, transparent 1px)`, backgroundSize: '30px 30px' }} />
         <div className="relative max-w-5xl mx-auto px-8 py-10">
-          <button onClick={() => router.push('/dashboard/academic')} className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors mb-6 text-sm">
+          <Button variant="ghost" size="sm" onClick={() => router.push('/dashboards/admin/academics')} className="flex items-center gap-2 mb-6">
             <ArrowLeft className="h-4 w-4" /> Back to Academic
-          </button>
+          </Button>
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-violet-600 flex items-center justify-center shadow-lg">
               <Layers className="h-7 w-7 text-white" />
@@ -157,11 +162,16 @@ export default function BatchesPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-8 py-10">
-        {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>}
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         {success && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 text-sm flex items-center gap-2">
+          <Alert className="mb-4 flex items-center gap-2">
             <CheckCircle className="h-4 w-4" /> {success}
-          </div>
+          </Alert>
         )}
 
         {/* Batch Config */}
@@ -170,41 +180,60 @@ export default function BatchesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
             <div>
               <label className={labelClass}>Academic Year <span className="text-red-500">*</span></label>
-              <input type="text" value={form.academic_year} onChange={e => set('academic_year', e.target.value)} placeholder="e.g. 2024-2025" className={`w-full ${inputClass}`} />
+              <Input
+                value={form.academic_year}
+                onChange={e => set('academic_year', e.target.value)}
+                placeholder="e.g. 2024-2025"
+                className="w-full"
+              />
             </div>
             <div>
               <label className={labelClass}>Batch Name <span className="text-red-500">*</span></label>
-              <input type="text" value={form.batch_name} onChange={e => set('batch_name', e.target.value)} placeholder="e.g. CSE-1" className={`w-full ${inputClass}`} />
+              <Input
+                value={form.batch_name}
+                onChange={e => set('batch_name', e.target.value)}
+                placeholder="e.g. CSE-1"
+                className="w-full"
+              />
             </div>
             <div>
               <label className={labelClass}>School <span className="text-red-500">*</span></label>
-              <select value={form.school_id} onChange={e => set('school_id', e.target.value)} className={`w-full ${selectClass}`}>
-                <option value="">-- Select School --</option>
-                {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <Select value={form.school_id} onValueChange={(v) => set('school_id', v)} className="w-full">
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="-- Select School --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {schools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className={labelClass}>Program <span className="text-red-500">*</span></label>
-              <select value={form.program_id} onChange={e => set('program_id', e.target.value)} disabled={!form.school_id} className={`w-full ${selectClass}`}>
-                <option value="">-- Select Program --</option>
-                {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <Select value={form.program_id} onValueChange={(v) => set('program_id', v)} disabled={!form.school_id} className="w-full">
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="-- Select Program --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {programs.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className={labelClass}>Group <span className="text-red-500">*</span></label>
-              <select value={form.group_id} onChange={e => set('group_id', e.target.value)} disabled={!form.program_id} className={`w-full ${selectClass}`}>
-                <option value="">-- Select Group --</option>
-                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
+              <Select value={form.group_id} onValueChange={(v) => set('group_id', v)} disabled={!form.program_id} className="w-full">
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="-- Select Group --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <button
-            onClick={fetchStudents}
-            className="bg-gray-800 text-white px-6 py-3 text-sm font-semibold hover:bg-gray-900 transition-colors flex items-center gap-2"
-          >
+          <Button onClick={fetchStudents} className="bg-gray-800 text-white px-6 py-3 text-sm font-semibold hover:bg-gray-900 transition-colors flex items-center gap-2">
             <Users className="h-4 w-4" />
             Fetch Unassigned Students
-          </button>
+          </Button>
         </div>
 
         {/* Students Table */}
@@ -224,12 +253,11 @@ export default function BatchesPage() {
               </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
+                <Input
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Search by name or roll no..."
-                  className="border border-gray-200 pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-violet-400 bg-gray-50 w-64"
+                  className="pl-9 w-64"
                 />
               </div>
             </div>
@@ -246,10 +274,9 @@ export default function BatchesPage() {
                     <thead>
                       <tr className="bg-gray-50 border-b border-gray-100">
                         <th className="px-4 py-3 text-left">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={allSelected}
-                            onChange={toggleAll}
+                            onCheckedChange={toggleAll}
                             className="accent-violet-600 w-4 h-4"
                           />
                         </th>
@@ -267,10 +294,9 @@ export default function BatchesPage() {
                           className={`border-b border-gray-50 cursor-pointer transition-colors ${selected.has(s.id) ? 'bg-violet-50' : 'hover:bg-gray-50'}`}
                         >
                           <td className="px-4 py-3">
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               checked={selected.has(s.id)}
-                              onChange={() => toggleStudent(s.id)}
+                              onCheckedChange={() => toggleStudent(s.id)}
                               onClick={e => e.stopPropagation()}
                               className="accent-violet-600 w-4 h-4"
                             />
@@ -293,14 +319,14 @@ export default function BatchesPage() {
                       'No students selected'
                     )}
                   </div>
-                  <button
+                  <Button
                     onClick={handleCreate}
                     disabled={loading || selected.size === 0}
                     className="bg-violet-600 text-white px-8 py-3 font-semibold hover:bg-violet-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <Layers className="h-4 w-4" />
                     {loading ? 'Creating...' : `Create Batch & Assign ${selected.size > 0 ? `(${selected.size})` : ''}`}
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
