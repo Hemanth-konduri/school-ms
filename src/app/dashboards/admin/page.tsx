@@ -39,15 +39,15 @@ export default function DashboardPage() {
   }
 
   const apps = [
-    { title: 'Academic Hierarchy', desc: 'Schools, programs, groups & batches', icon: Layers, color: 'bg-violet-50 hover:bg-violet-100', iconColor: 'text-violet-600', link: '/dashboard/academic' },
-    { title: 'Manage Students', desc: 'Add and organize student accounts', icon: Users, color: 'bg-blue-50 hover:bg-blue-100', iconColor: 'text-blue-600', link: '/dashboard/students' },
-    { title: 'Manage Teachers', desc: 'Add and manage teaching staff', icon: GraduationCap, color: 'bg-green-50 hover:bg-green-100', iconColor: 'text-green-600', link: '/dashboard/teachers' },
-    { title: 'Classes', desc: 'Organize courses and schedules', icon: BookOpen, color: 'bg-purple-50 hover:bg-purple-100', iconColor: 'text-purple-600', link: '/dashboard/classes' },
-    { title: 'Exams', desc: 'Create and manage examinations', icon: ClipboardList, color: 'bg-orange-50 hover:bg-orange-100', iconColor: 'text-orange-600', link: '/dashboard/exams' },
-    { title: 'Results', desc: 'View and publish exam results', icon: FileText, color: 'bg-teal-50 hover:bg-teal-100', iconColor: 'text-teal-600', link: '/dashboard/results' },
-    { title: 'Attendance', desc: 'Track student attendance', icon: Calendar, color: 'bg-pink-50 hover:bg-pink-100', iconColor: 'text-pink-600', link: '/dashboard/attendance' },
-    { title: 'Reports', desc: 'Generate analytics and reports', icon: BarChart, color: 'bg-indigo-50 hover:bg-indigo-100', iconColor: 'text-indigo-600', link: '/dashboard/reports' },
-    { title: 'Notifications', desc: 'System alerts and announcements', icon: Bell, color: 'bg-yellow-50 hover:bg-yellow-100', iconColor: 'text-yellow-600', link: '/dashboard/notifications' },
+    { title: 'Academic Hierarchy', desc: 'Schools, programs, groups & batches', icon: Layers, color: 'bg-violet-50 hover:bg-violet-100', iconColor: 'text-violet-600', link: '/dashboards/admin/academics' },
+    { title: 'Manage Students', desc: 'Add and organize student accounts', icon: Users, color: 'bg-blue-50 hover:bg-blue-100', iconColor: 'text-blue-600', link: '/dashboards/admin/students' },
+    { title: 'Manage Teachers', desc: 'Add and manage teaching staff', icon: GraduationCap, color: 'bg-green-50 hover:bg-green-100', iconColor: 'text-green-600', link: '/dashboards/admin/teachers' },
+    { title: 'Classes', desc: 'Organize courses and schedules', icon: BookOpen, color: 'bg-purple-50 hover:bg-purple-100', iconColor: 'text-purple-600', link: '/dashboards/admin/classes' },
+    { title: 'Exams', desc: 'Create and manage examinations', icon: ClipboardList, color: 'bg-orange-50 hover:bg-orange-100', iconColor: 'text-orange-600', link: '/dashboards/admin/exams' },
+    { title: 'Results', desc: 'View and publish exam results', icon: FileText, color: 'bg-teal-50 hover:bg-teal-100', iconColor: 'text-teal-600', link: '/dashboards/admin/results' },
+    { title: 'Attendance', desc: 'Track student attendance', icon: Calendar, color: 'bg-pink-50 hover:bg-pink-100', iconColor: 'text-pink-600', link: '/dashboards/admin/attendance' },
+    { title: 'Reports', desc: 'Generate analytics and reports', icon: BarChart, color: 'bg-indigo-50 hover:bg-indigo-100', iconColor: 'text-indigo-600', link: '/dashboards/admin/reports' },
+    { title: 'Notifications', desc: 'System alerts and announcements', icon: Bell, color: 'bg-yellow-50 hover:bg-yellow-100', iconColor: 'text-yellow-600', link: '/dashboards/admin/notifications' },
   ]
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#f5f1ea]">Loading...</div>

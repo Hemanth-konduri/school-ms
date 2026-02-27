@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, X, Building2, CheckCircle, Trash2 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 
 interface School {
   id: string
@@ -94,9 +97,9 @@ export default function SchoolsPage() {
       <div className="relative bg-gradient-to-br from-[#faf8f3] to-[#f0ebe0] shadow-md overflow-hidden">
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: `linear-gradient(#666 1px, transparent 1px), linear-gradient(90deg, #666 1px, transparent 1px)`, backgroundSize: '30px 30px' }} />
         <div className="relative max-w-5xl mx-auto px-8 py-10">
-          <button onClick={() => router.push('/dashboard/academic')} className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors mb-6 text-sm">
+          <Button variant="ghost" size="sm" onClick={() => router.push('/dashboards/admin/academics')} className="flex items-center gap-2 mb-6">
             <ArrowLeft className="h-4 w-4" /> Back to Academic
-          </button>
+          </Button>
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-blue-600 flex items-center justify-center shadow-lg">
               <Building2 className="h-7 w-7 text-white" />
@@ -114,21 +117,24 @@ export default function SchoolsPage() {
         <div className="bg-white shadow-sm p-8">
           <h2 className="text-lg font-bold text-gray-800 mb-6">New School</h2>
 
-          {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>}
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 text-sm flex items-center gap-2">
+            <Alert className="mb-4 flex items-center gap-2">
               <CheckCircle className="h-4 w-4" /> {success}
-            </div>
+            </Alert>
           )}
 
           <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">School Name <span className="text-red-500">*</span></label>
-            <input
-              type="text"
+            <Input
               value={schoolName}
               onChange={e => setSchoolName(e.target.value)}
               placeholder="e.g. School of Computing"
-              className="w-full border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 bg-gray-50"
             />
           </div>
 
@@ -137,36 +143,28 @@ export default function SchoolsPage() {
             <div className="space-y-2">
               {programs.map((prog, i) => (
                 <div key={i} className="flex gap-2">
-                  <input
-                    type="text"
+                  <Input
+                    className="flex-1"
                     value={prog}
                     onChange={e => updateProgram(i, e.target.value)}
                     placeholder={`e.g. B.Tech, M.Tech, PhD`}
-                    className="flex-1 border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 bg-gray-50"
                   />
                   {programs.length > 1 && (
-                    <button onClick={() => removeProgramField(i)} className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                    <Button variant="ghost" size="icon" onClick={() => removeProgramField(i)} className="text-gray-400 hover:text-red-500 hover:bg-red-50">
                       <X className="h-4 w-4" />
-                    </button>
+                    </Button>
                   )}
                 </div>
               ))}
             </div>
-            <button
-              onClick={addProgramField}
-              className="mt-3 flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium"
-            >
+            <Button variant="link" size="sm" onClick={addProgramField} className="mt-3 flex items-center gap-1">
               <Plus className="h-4 w-4" /> Add Program
-            </button>
+            </Button>
           </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          <Button className="w-full" disabled={loading} onClick={handleSubmit}>
             {loading ? 'Creating...' : 'Create School & Programs'}
-          </button>
+          </Button>
         </div>
 
         {/* Existing Schools */}
@@ -193,9 +191,9 @@ export default function SchoolsPage() {
                         {school.programs.length === 0 && <span className="text-xs text-gray-400">No programs</span>}
                       </div>
                     </div>
-                    <button onClick={() => deleteSchool(school.id, school.name)} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
+                    <Button variant="ghost" size="icon" onClick={() => deleteSchool(school.id, school.name)} className="text-gray-300 hover:text-red-500">
                       <Trash2 className="h-4 w-4" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
