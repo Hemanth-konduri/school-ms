@@ -209,7 +209,7 @@ export default function BatchesPage() {
             </div>
             <div>
               <label className={labelClass}>Program <span className="text-red-500">*</span></label>
-              <Select value={form.program_id} onValueChange={(v) => set('program_id', v)} disabled={!form.school_id} className="w-full">
+              <Select value={form.program_id} onValueChange={(v) => set('program_id', v)} disabled={!form.school_id} >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="-- Select Program --" />
                 </SelectTrigger>
@@ -220,7 +220,7 @@ export default function BatchesPage() {
             </div>
             <div>
               <label className={labelClass}>Group <span className="text-red-500">*</span></label>
-              <Select value={form.group_id} onValueChange={(v) => set('group_id', v)} disabled={!form.program_id} className="w-full">
+              <Select value={form.group_id} onValueChange={(v) => set('group_id', v)} disabled={!form.program_id} >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="-- Select Group --" />
                 </SelectTrigger>
