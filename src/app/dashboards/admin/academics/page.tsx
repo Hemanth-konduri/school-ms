@@ -63,7 +63,7 @@ export default function AcademicPage() {
       tagColor: 'bg-cyan-100 text-cyan-700',
 },
 {
-      step: '05',
+      step: '06',
       title: 'Manage Subjects',
       desc: 'Create semester-wise subjects linked to batches. Required before creating timetables.',
       icon: BookMarked,
