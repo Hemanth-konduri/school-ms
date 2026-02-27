@@ -23,6 +23,7 @@ interface Subject { id: string; name: string; code: string | null }
 interface Teacher { id: string; name: string }
 interface Template {
   id: string; day_of_week: number; start_time: string; end_time: string
+  teacher_id?: string | null
   room: string | null; event_type: string; color: string; is_active: boolean
   subjects: { name: string; code: string | null } | null
   teachers: { name: string } | null

@@ -34,6 +34,11 @@ export async function POST(request: NextRequest) {
     } = await request.json()
 
     const conflicts: any[] = []
+    const subjectName = (event: any) => {
+      const subjects = event?.subjects
+      if (Array.isArray(subjects)) return subjects[0]?.name
+      return subjects?.name
+    }
 
     // Check teacher double-booking
     const { data: teacherConflicts } = await supabase
@@ -50,7 +55,7 @@ export async function POST(request: NextRequest) {
         conflicts.push({
           type: 'teacher_double_booking',
           severity: 'critical',
-          message: `Teacher is already scheduled for ${filtered[0].subjects?.name || 'another subject'}`,
+          message: `Teacher is already scheduled for ${subjectName(filtered[0]) || 'another subject'}`,
           conflictingWith: filtered[0]
         })
       }
@@ -71,7 +76,7 @@ export async function POST(request: NextRequest) {
         conflicts.push({
           type: 'batch_overlap',
           severity: 'critical',
-          message: `Batch already has a scheduled class for ${filtered[0].subjects?.name || 'another subject'}`,
+          message: `Batch already has a scheduled class for ${subjectName(filtered[0]) || 'another subject'}`,
           conflictingWith: filtered[0]
         })
       }
@@ -93,7 +98,7 @@ export async function POST(request: NextRequest) {
           conflicts.push({
             type: 'room_conflict',
             severity: 'warning',
-            message: `Room is already booked for ${filtered[0].subjects?.name || 'another class'}`,
+            message: `Room is already booked for ${subjectName(filtered[0]) || 'another class'}`,
             conflictingWith: filtered[0]
           })
         }
