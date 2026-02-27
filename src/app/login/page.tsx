@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { BookOpen, GraduationCap, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 
 export default function Login() {
   const [loading, setLoading] = useState(false)
