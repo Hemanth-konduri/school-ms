@@ -55,6 +55,8 @@ export default function RegisterStudentPage() {
       return setError('Please fill all required fields.')
 
     setLoading(true)
+    
+    // Insert student
     const { error: err } = await supabase.from('students').insert({
       name: name.trim(),
       admission_number: admission_number.trim(),
@@ -64,12 +66,33 @@ export default function RegisterStudentPage() {
       academic_year: academic_year.trim(),
       batch_id: null
     })
-    setLoading(false)
+    
     if (err) {
+      setLoading(false)
       if (err.message.includes('admission_number')) return setError('Admission number already exists.')
       if (err.message.includes('email')) return setError('Email already registered.')
       return setError(err.message)
     }
+
+    // Get student role ID and create profile
+    const { data: studentRole, error: roleError } = await supabase
+      .from('roles')
+      .select('id, name')
+      .ilike('name', 'student')
+      .single()
+
+    console.log('Student role found:', studentRole, roleError)
+
+    if (studentRole) {
+      const { error: profileError } = await supabase.from('profiles').insert({
+        email: email.trim(),
+        role_id: studentRole.id,
+        is_active: true
+      })
+      console.log('Profile created:', profileError)
+    }
+
+    setLoading(false)
     setSuccess(`Student "${name}" registered successfully!`)
     setForm({ name: '', admission_number: '', email: '', phone: '', school_id: '', program_id: '', group_id: '', academic_year: '' })
   }

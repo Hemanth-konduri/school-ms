@@ -718,6 +718,7 @@ export default function CalendarPage() {
       {/* ── Event Detail Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="rounded-none max-w-sm p-0 overflow-hidden gap-0">
+          <DialogTitle className="sr-only">Event Details</DialogTitle>
           {selectedEvent && (
             <>
               <div className="px-5 py-4 text-white relative" style={{ backgroundColor: TYPE_COLORS[selectedEvent.eventType] || '#5B5EF4' }}>
