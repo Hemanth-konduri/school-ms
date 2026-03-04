@@ -2,87 +2,123 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BookOpen, GraduationCap, Users } from 'lucide-react'
+import { BookOpen, GraduationCap, Users, AlertCircle, Ban } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 
+function getErrorFromParams(): { message: string; isDisabled: boolean } {
+  if (typeof window === 'undefined') return { message: '', isDisabled: false }
+
+  const params = new URLSearchParams(window.location.search)
+  const code = params.get('error')
+  const rawDate = params.get('date')
+
+  if (!code) return { message: '', isDisabled: false }
+
+  if (code === 'disabled') {
+    let dateStr = 'recently'
+    if (rawDate) {
+      try {
+        dateStr = new Date(decodeURIComponent(rawDate)).toLocaleDateString('en-IN', {
+          day: 'numeric', month: 'long', year: 'numeric',
+        })
+      } catch { /* keep 'recently' */ }
+    }
+    return {
+      message: `Your account was disabled on ${dateStr}. Please contact your administrator to restore access.`,
+      isDisabled: true,
+    }
+  }
+
+  const MAP: Record<string, string> = {
+    not_registered:  'This Google account is not registered. Ask your administrator to add your email first.',
+    inactive:        'Your account has been deactivated. Please contact your administrator.',
+    exchange_failed: 'Authentication failed. Please try again.',
+    no_code:         'Invalid login link. Please try signing in again.',
+    no_user:         'Could not retrieve your account. Please try again.',
+  }
+
+  return { message: MAP[code] ?? 'An unexpected error occurred.', isDisabled: false }
+}
+
 export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isDisabled, setIsDisabled] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
-    // Check if user is already logged in
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        router.push('/dashboards/admin')
-      }
+    // ── Read error from URL params set by the callback route ─────────────
+    const { message, isDisabled } = getErrorFromParams()
+    if (message) {
+      setError(message)
+      setIsDisabled(isDisabled)
     }
-    checkUser()
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        // Verify profile exists
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('is_active')
-          .eq('auth_user_id', session.user.id)
-          .maybeSingle()
+    // ── REMOVED: onAuthStateChange redirect ──────────────────────────────
+    // We intentionally do NOT redirect on SIGNED_IN here anymore.
+    // Reason: onAuthStateChange fires the moment Google returns — BEFORE
+    // the callback route has had a chance to check is_disabled and sign
+    // the user out. This was the race condition letting disabled students in.
+    //
+    // The callback route (app/api/auth/callback/route.ts) now handles all
+    // post-login routing. The middleware handles blocking on every request.
+    // The login page only needs to show errors — nothing else.
 
-        if (!profile || !profile.is_active) {
-          await supabase.auth.signOut()
-          setError('Unauthorized email. Contact admin to get access.')
-          setLoading(false)
-        } else {
-          router.push('/dashboards/admin')
-        }
-      }
-    })
+    // Only redirect if there's already a clean, valid session with no errors
+    // (e.g. user manually navigated to /login while logged in)
+    const checkCleanSession = async () => {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('error')) return // don't redirect if there's an error in URL
 
-    return () => subscription.unsubscribe()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      // Let middleware handle the role-based redirect — just push to dashboards root
+      // Middleware will redirect to the correct dashboard
+      router.push('/dashboards/admin') // middleware will correct this if wrong role
+    }
+    checkCleanSession()
   }, [router])
 
   const handleGoogleLogin = async () => {
     setLoading(true)
     setError('')
+    setIsDisabled(false)
 
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
+          redirectTo: `${window.location.origin}/api/auth/callback`,
+        },
       })
-
       if (error) throw error
-    } catch (error: any) {
-      setError(error.message || 'Failed to login')
+    } catch (err: any) {
+      setError(err.message || 'Failed to initiate login')
       setLoading(false)
     }
   }
 
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden bg-white">
-      {/* Grid Background */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808018_1px,transparent_1px),linear-gradient(to_bottom,#80808018_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:linear-gradient(to_bottom,white_20%,transparent)]" />
-      
-      {/* Decorative Icons */}
+
       <BookOpen className="absolute top-20 left-20 w-20 h-20 text-slate-400 opacity-40" />
       <GraduationCap className="absolute top-32 right-24 w-24 h-24 text-slate-400 opacity-35" />
       <Users className="absolute bottom-28 left-32 w-20 h-20 text-slate-400 opacity-40" />
       <BookOpen className="absolute bottom-16 right-16 w-16 h-16 text-slate-400 opacity-35" />
-      
-      {/* Login Card */}
+
       <div className="relative w-full max-w-md">
         <div className="bg-white border-2 border-slate-200 shadow-xl p-10">
           <div className="text-center mb-10">
             <h1 className="text-4xl font-bold text-slate-900 mb-3">Welcome Back</h1>
-            <p className="text-slate-600">Sign in to access your school management dashboard and streamline your educational operations</p>
+            <p className="text-slate-600">
+              Sign in to access your school management dashboard
+            </p>
           </div>
-          
+
           <Button
             onClick={handleGoogleLogin}
             disabled={loading}
@@ -94,13 +130,24 @@ export default function Login() {
               <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            {loading ? 'Redirecting...' : 'Sign in with Google'}
+            {loading ? 'Redirecting to Google...' : 'Sign in with Google'}
           </Button>
-          
+
           {error && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertTitle>Authentication Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
+            <Alert
+              variant={isDisabled ? 'default' : 'destructive'}
+              className={`mt-5 ${isDisabled ? 'border-orange-300 bg-orange-50 [&>svg]:text-orange-600' : ''}`}
+            >
+              {isDisabled
+                ? <Ban className="h-4 w-4 text-orange-600" />
+                : <AlertCircle className="h-4 w-4" />
+              }
+              <AlertTitle className={isDisabled ? 'text-orange-900' : ''}>
+                {isDisabled ? 'Account Disabled' : 'Cannot sign in'}
+              </AlertTitle>
+              <AlertDescription className={isDisabled ? 'text-orange-800' : ''}>
+                {error}
+              </AlertDescription>
             </Alert>
           )}
         </div>

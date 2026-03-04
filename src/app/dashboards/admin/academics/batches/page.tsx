@@ -14,16 +14,19 @@ interface School { id: string; name: string }
 interface Program { id: string; name: string }
 interface Group { id: string; name: string }
 interface Student { id: string; name: string; admission_number: string; email: string }
+interface Batch { id: string; name: string; academic_year: string }
 
 export default function BatchesPage() {
   const router = useRouter()
   const [schools, setSchools] = useState<School[]>([])
   const [programs, setPrograms] = useState<Program[]>([])
   const [groups, setGroups] = useState<Group[]>([])
+  const [batches, setBatches] = useState<Batch[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
-  const [form, setForm] = useState({ academic_year: '', batch_name: '', school_id: '', program_id: '', group_id: '' })
+  const [mode, setMode] = useState<'create' | 'assign'>('create')
+  const [form, setForm] = useState({ academic_year: '', batch_name: '', batch_id: '', school_id: '', program_id: '', group_id: '' })
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -44,14 +47,28 @@ export default function BatchesPage() {
   useEffect(() => {
     if (form.program_id && form.school_id) {
       setForm(f => ({ ...f, group_id: '' }))
-      setGroups([]); resetStudents()
+      setGroups([]); resetStudents(); setBatches([])
       supabase.from('groups').select('id, name').eq('school_id', form.school_id).eq('program_id', form.program_id).order('name').then(({ data }) => setGroups(data || []))
     }
   }, [form.program_id])
 
   useEffect(() => {
-    if (form.group_id) resetStudents()
-  }, [form.group_id])
+    if (form.group_id && form.academic_year) {
+      resetStudents()
+      // Load existing batches for this group and academic year
+      supabase
+        .from('batches')
+        .select('id, name, academic_year')
+        .eq('school_id', form.school_id)
+        .eq('program_id', form.program_id)
+        .eq('group_id', form.group_id)
+        .eq('academic_year', form.academic_year)
+        .order('name')
+        .then(({ data }) => setBatches(data || []))
+    } else {
+      setBatches([])
+    }
+  }, [form.group_id, form.academic_year])
 
   const resetStudents = () => {
     setStudents([]); setSelected(new Set()); setStudentsLoaded(false)
@@ -103,12 +120,34 @@ export default function BatchesPage() {
 
   const handleCreate = async () => {
     setError(''); setSuccess('')
+    
+    if (mode === 'assign') {
+      // Assign to existing batch
+      if (!form.batch_id) return setError('Please select a batch.')
+      if (selected.size === 0) return setError('Select at least one student.')
+
+      setLoading(true)
+      const { error: updateErr } = await supabase
+        .from('students')
+        .update({ batch_id: form.batch_id })
+        .in('id', Array.from(selected))
+
+      setLoading(false)
+      if (updateErr) return setError('Failed to assign students: ' + updateErr.message)
+
+      const batchName = batches.find(b => b.id === form.batch_id)?.name || 'batch'
+      setSuccess(`${selected.size} student(s) assigned to "${batchName}"!`)
+      setForm(f => ({ ...f, batch_id: '' }))
+      resetStudents()
+      return
+    }
+
+    // Create new batch
     const { batch_name, academic_year, school_id, program_id, group_id } = form
     if (!batch_name.trim()) return setError('Batch name is required.')
     if (selected.size === 0) return setError('Select at least one student.')
 
     setLoading(true)
-    // Create batch
     const { data: batch, error: batchErr } = await supabase
       .from('batches')
       .insert({ name: batch_name.trim(), academic_year, school_id, program_id, group_id })
@@ -120,7 +159,6 @@ export default function BatchesPage() {
       return setError(batchErr.message.includes('unique') ? `Batch "${batch_name}" already exists for this group/year.` : batchErr.message)
     }
 
-    // Assign students
     const { error: updateErr } = await supabase
       .from('students')
       .update({ batch_id: batch.id })
@@ -176,26 +214,32 @@ export default function BatchesPage() {
 
         {/* Batch Config */}
         <div className="bg-white shadow-sm p-8 mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-6">Batch Configuration</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-gray-800">Batch Configuration</h2>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setMode('create')}
+                className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                  mode === 'create'
+                    ? 'bg-violet-600 text-white hover:bg-violet-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Create New Batch
+              </Button>
+              <Button
+                onClick={() => setMode('assign')}
+                className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                  mode === 'assign'
+                    ? 'bg-violet-600 text-white hover:bg-violet-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Assign to Existing Batch
+              </Button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
-            <div>
-              <label className={labelClass}>Academic Year <span className="text-red-500">*</span></label>
-              <Input
-                value={form.academic_year}
-                onChange={e => set('academic_year', e.target.value)}
-                placeholder="e.g. 2024-2025"
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Batch Name <span className="text-red-500">*</span></label>
-              <Input
-                value={form.batch_name}
-                onChange={e => set('batch_name', e.target.value)}
-                placeholder="e.g. CSE-1"
-                className="w-full"
-              />
-            </div>
             <div>
               <label className={labelClass}>School <span className="text-red-500">*</span></label>
               <Select value={form.school_id} onValueChange={(v) => set('school_id', v)}>
@@ -229,7 +273,44 @@ export default function BatchesPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <label className={labelClass}>Academic Year <span className="text-red-500">*</span></label>
+              <Input
+                value={form.academic_year}
+                onChange={e => set('academic_year', e.target.value)}
+                placeholder="e.g. 2024-2025"
+                className="w-full"
+              />
+            </div>
+            {mode === 'create' ? (
+              <div>
+                <label className={labelClass}>Batch Name <span className="text-red-500">*</span></label>
+                <Input
+                  value={form.batch_name}
+                  onChange={e => set('batch_name', e.target.value)}
+                  placeholder="e.g. CSE-1"
+                  className="w-full"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className={labelClass}>Select Batch <span className="text-red-500">*</span></label>
+                <Select value={form.batch_id} onValueChange={(v) => set('batch_id', v)} disabled={batches.length === 0}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={batches.length === 0 ? "No batches available" : "-- Select Batch --"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {batches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
+          {mode === 'assign' && batches.length === 0 && form.group_id && form.academic_year && (
+            <div className="mb-5 p-3 bg-amber-50 border border-amber-200 text-amber-700 text-sm">
+              No existing batches found for this combination. Switch to "Create New Batch" mode.
+            </div>
+          )}
           <Button onClick={fetchStudents} className="bg-gray-800 text-white px-6 py-3 text-sm font-semibold hover:bg-gray-900 transition-colors flex items-center gap-2">
             <Users className="h-4 w-4" />
             Fetch Unassigned Students
@@ -325,7 +406,12 @@ export default function BatchesPage() {
                     className="bg-violet-600 text-white px-8 py-3 font-semibold hover:bg-violet-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <Layers className="h-4 w-4" />
-                    {loading ? 'Creating...' : `Create Batch & Assign ${selected.size > 0 ? `(${selected.size})` : ''}`}
+                    {loading
+                      ? mode === 'create' ? 'Creating...' : 'Assigning...'
+                      : mode === 'create'
+                      ? `Create Batch & Assign ${selected.size > 0 ? `(${selected.size})` : ''}`
+                      : `Assign to Batch ${selected.size > 0 ? `(${selected.size})` : ''}`
+                    }
                   </Button>
                 </div>
               </>

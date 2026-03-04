@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Users, UserPlus, Search, Filter, X,
   Building2, BookOpen, Hash, Mail, Phone, User,
-  Layers, ChevronRight, UserCheck, UserX
+  Layers, ChevronRight, UserCheck, UserX, Edit, Trash2, Ban
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -32,10 +32,29 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface School { id: string; name: string }
 interface Program { id: string; name: string }
 interface Group { id: string; name: string }
+interface Batch { id: string; name: string }
 interface Student {
   id: string
   name: string
@@ -44,6 +63,13 @@ interface Student {
   phone: string | null
   academic_year: string
   batch_id: string | null
+  school_id: string
+  program_id: string
+  group_id: string
+  roll_number?: string | null
+  semester?: number | null
+  is_disabled?: boolean
+  disabled_at?: string | null
   schools: { name: string } | null
   programs: { name: string } | null
   groups: { name: string } | null
@@ -66,8 +92,17 @@ export default function ManageStudentsPage() {
     school_id: '', program_id: '', group_id: '', academic_year: '', search: ''
   })
   const [students, setStudents] = useState<Student[]>([])
+  const [fetchError, setFetchError] = useState('')
   const [loading, setLoading] = useState(true)
   const [expandedBatch, setExpandedBatch] = useState<string | null>('unassigned')
+  const [editStudent, setEditStudent] = useState<Student | null>(null)
+  const [deleteStudent, setDeleteStudent] = useState<Student | null>(null)
+  const [disableStudent, setDisableStudent] = useState<Student | null>(null)
+  const [availableBatches, setAvailableBatches] = useState<Batch[]>([])
+  const [editForm, setEditForm] = useState({ batch_id: '', roll_number: '', semester: '', email: '' })
+  const [actionLoading, setActionLoading] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const [actionSuccess, setActionSuccess] = useState('')
 
   useEffect(() => {
     supabase.from('schools').select('id, name').order('name').then(({ data }) => setSchools(data || []))
@@ -100,10 +135,12 @@ export default function ManageStudentsPage() {
 
   const fetchStudents = async () => {
     setLoading(true)
+    setFetchError('')
     let query = supabase
       .from('students')
       .select(`
         id, name, admission_number, email, phone, academic_year, batch_id,
+        school_id, program_id, group_id, roll_number, semester, is_disabled, disabled_at,
         schools(name),
         programs(name),
         groups(name),
@@ -116,14 +153,171 @@ export default function ManageStudentsPage() {
     if (filters.group_id) query = query.eq('group_id', filters.group_id)
     if (filters.academic_year.trim()) query = query.eq('academic_year', filters.academic_year.trim())
 
-    const { data, error } = await query
-    if (!error) setStudents((data as any) || [])
+    let { data, error } = await query
+    if (error) {
+      // Fallback for older schemas where optional student columns are not present yet.
+      const fallbackQuery = supabase
+        .from('students')
+        .select(`
+          id, name, admission_number, email, phone, academic_year, batch_id,
+          school_id, program_id, group_id, is_disabled, disabled_at,
+          schools(name),
+          programs(name),
+          groups(name),
+          batches(name)
+        `)
+        .order('name')
+
+      if (filters.school_id) fallbackQuery.eq('school_id', filters.school_id)
+      if (filters.program_id) fallbackQuery.eq('program_id', filters.program_id)
+      if (filters.group_id) fallbackQuery.eq('group_id', filters.group_id)
+      if (filters.academic_year.trim()) fallbackQuery.eq('academic_year', filters.academic_year.trim())
+
+      const fallback = await fallbackQuery
+      if (!fallback.error) {
+        data = fallback.data as any
+        error = null
+      }
+    }
+
+    if (error) {
+      console.error('Error fetching students:', {
+        message: (error as any)?.message,
+        details: (error as any)?.details,
+        hint: (error as any)?.hint,
+        code: (error as any)?.code,
+      })
+      setFetchError((error as any)?.message || 'Unable to fetch students')
+      setStudents([])
+    } else if (data) {
+      const studentsWithDefaults = data.map((s: any) => ({
+        ...s,
+        is_disabled: s.is_disabled ?? false,
+        disabled_at: s.disabled_at ?? null
+      }))
+      setStudents(studentsWithDefaults)
+    }
     setLoading(false)
   }
 
   const clearFilters = () => {
     setFilters({ school_id: '', program_id: '', group_id: '', academic_year: '', search: '' })
     setPrograms([]); setGroups([])
+  }
+
+  const openEdit = async (student: Student) => {
+    setEditStudent(student)
+    setEditForm({
+      batch_id: student.batch_id || '',
+      roll_number: student.roll_number || '',
+      semester: String(student.semester || ''),
+      email: student.email || ''
+    })
+    if (student.school_id && student.program_id && student.group_id) {
+      const { data } = await supabase.from('batches').select('id, name')
+        .eq('school_id', student.school_id).eq('program_id', student.program_id)
+        .eq('group_id', student.group_id).eq('academic_year', student.academic_year).order('name')
+      setAvailableBatches(data || [])
+    }
+  }
+
+  const handleEdit = async () => {
+    if (!editStudent) return
+    setActionError('')
+    setActionSuccess('')
+    setActionLoading(true)
+    const { error } = await supabase.from('students').update({
+      batch_id: editForm.batch_id || null,
+      roll_number: editForm.roll_number || null,
+      semester: editForm.semester ? parseInt(editForm.semester) : null,
+      email: editForm.email.trim()
+    }).eq('id', editStudent.id)
+    setActionLoading(false)
+    if (error) {
+      console.error('Error updating student:', error)
+      setActionError(error.message || 'Failed to update student.')
+      return
+    }
+    setActionSuccess('Student details updated successfully.')
+    setEditStudent(null)
+    fetchStudents()
+  }
+
+  const handleDelete = async () => {
+    if (!deleteStudent) return
+    setActionError('')
+    setActionSuccess('')
+    setActionLoading(true)
+    const { error } = await supabase.from('students').delete().eq('id', deleteStudent.id)
+    if (error) {
+      setActionLoading(false)
+      console.error('Error deleting student:', error)
+      setActionError(error.message || 'Failed to delete student.')
+      return
+    }
+
+    // Best-effort: disable matching profile so deleted student cannot sign in.
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ is_active: false })
+      .eq('email', deleteStudent.email)
+
+    setActionLoading(false)
+    if (profileError) {
+      console.warn('Profile disable after delete failed:', profileError)
+    }
+    setActionSuccess('Student deleted successfully.')
+    setDeleteStudent(null)
+    fetchStudents()
+  }
+
+  const handleDisable = async () => {
+    if (!disableStudent) return
+    setActionError('')
+    setActionSuccess('')
+    setActionLoading(true)
+    const nextDisabled = !disableStudent.is_disabled
+    const { error } = await supabase.from('students').update({
+      is_disabled: nextDisabled,
+      disabled_at: nextDisabled ? new Date().toISOString() : null
+    }).eq('id', disableStudent.id)
+
+    if (error) {
+      setActionLoading(false)
+      console.error('Error updating student disabled state:', error)
+      setActionError(error.message || 'Failed to update disable state.')
+      return
+    }
+
+    // Keep profile login state in sync with students.is_disabled.
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ is_active: !nextDisabled })
+      .eq('email', disableStudent.email)
+
+    if (profileError) {
+      console.error('Error updating profile active state:', profileError)
+      // Roll back students table state to avoid inconsistent UI/auth behavior.
+      await supabase.from('students').update({
+        is_disabled: !nextDisabled,
+        disabled_at: !nextDisabled ? new Date().toISOString() : null
+      }).eq('id', disableStudent.id)
+      setActionLoading(false)
+      setActionError(`Student updated, but profile update failed: ${profileError.message}`)
+      return
+    }
+
+    setActionLoading(false)
+    setActionSuccess(nextDisabled ? 'Student account disabled successfully.' : 'Student account enabled successfully.')
+    setDisableStudent(null)
+    setStudents(prev =>
+      prev.map(s =>
+        s.id === disableStudent.id
+          ? { ...s, is_disabled: nextDisabled, disabled_at: nextDisabled ? new Date().toISOString() : null }
+          : s
+      )
+    )
+    fetchStudents()
   }
 
   const searchedStudents = students.filter(s => {
@@ -218,7 +412,7 @@ export default function ManageStudentsPage() {
         </div>
 
         {/* Filters */}
-        <Card className="mb-6 rounded-none shadow-sm border-gray-100">
+          <Card className="mb-6 rounded-none shadow-sm border-gray-100">
           <CardHeader className="pb-3 px-6 pt-5">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-bold text-gray-700 flex items-center gap-2">
@@ -319,6 +513,27 @@ export default function ManageStudentsPage() {
             </div>
           </CardContent>
         </Card>
+        {fetchError && (
+          <Card className="mb-6 rounded-none shadow-sm border-red-200">
+            <CardContent className="px-6 py-4 text-sm text-red-700">
+              {fetchError}
+            </CardContent>
+          </Card>
+        )}
+        {actionError && (
+          <Card className="mb-6 rounded-none shadow-sm border-red-200">
+            <CardContent className="px-6 py-4 text-sm text-red-700">
+              {actionError}
+            </CardContent>
+          </Card>
+        )}
+        {actionSuccess && (
+          <Card className="mb-6 rounded-none shadow-sm border-green-200">
+            <CardContent className="px-6 py-4 text-sm text-green-700">
+              {actionSuccess}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Results */}
         {loading ? (
@@ -426,6 +641,7 @@ export default function ManageStudentsPage() {
                             </TableHead>
                             <TableHead className="text-xs font-bold text-gray-500 uppercase tracking-wider">Year</TableHead>
                             <TableHead className="text-xs font-bold text-gray-500 uppercase tracking-wider">School / Program</TableHead>
+                            <TableHead className="text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -460,6 +676,22 @@ export default function ManageStudentsPage() {
                                   <div className="text-gray-400">{(student.programs as any)?.name} · {(student.groups as any)?.name}</div>
                                 </div>
                               </TableCell>
+                              <TableCell>
+                                <div className="flex items-center justify-center gap-1">
+                                  <Button variant="ghost" size="sm" onClick={() => openEdit(student)}
+                                    className="h-7 w-7 p-0 hover:bg-blue-50 hover:text-blue-600">
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => setDisableStudent(student)}
+                                    className={`h-7 w-7 p-0 ${student.is_disabled ? 'hover:bg-green-50 hover:text-green-600' : 'hover:bg-orange-50 hover:text-orange-600'}`}>
+                                    {student.is_disabled ? <UserCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => setDeleteStudent(student)}
+                                    className="h-7 w-7 p-0 hover:bg-red-50 hover:text-red-600">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -486,6 +718,84 @@ export default function ManageStudentsPage() {
             })}
           </div>
         )}
+
+        {/* Edit Dialog */}
+        <Dialog open={!!editStudent} onOpenChange={() => setEditStudent(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Student</DialogTitle>
+              <DialogDescription>Update student information</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Batch</label>
+                <Select value={editForm.batch_id || 'unassigned'} onValueChange={(v) => setEditForm(f => ({ ...f, batch_id: v === 'unassigned' ? '' : v }))}>
+                  <SelectTrigger><SelectValue placeholder="No Batch" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">No Batch</SelectItem>
+                    {availableBatches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Roll Number</label>
+                <Input value={editForm.roll_number} onChange={(e) => setEditForm(f => ({ ...f, roll_number: e.target.value }))} placeholder="Roll Number" />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Email</label>
+                <Input type="email" value={editForm.email} onChange={(e) => setEditForm(f => ({ ...f, email: e.target.value }))} placeholder="student@example.com" />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Semester</label>
+                <Input type="number" value={editForm.semester} onChange={(e) => setEditForm(f => ({ ...f, semester: e.target.value }))} placeholder="Semester" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditStudent(null)}>Cancel</Button>
+              <Button onClick={handleEdit} disabled={actionLoading} className="bg-blue-600 hover:bg-blue-700 text-white">
+                {actionLoading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation */}
+        <AlertDialog open={!!deleteStudent} onOpenChange={() => setDeleteStudent(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Student?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to permanently delete <strong>{deleteStudent?.name}</strong>? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>No, Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} disabled={actionLoading} className="bg-red-600 hover:bg-red-700">
+                {actionLoading ? 'Deleting...' : 'Yes, Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Disable Confirmation */}
+        <AlertDialog open={!!disableStudent} onOpenChange={() => setDisableStudent(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{disableStudent?.is_disabled ? 'Enable' : 'Disable'} Account?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {disableStudent?.is_disabled
+                  ? `Enable account for ${disableStudent?.name}? They will be able to login again.`
+                  : `Disable account for ${disableStudent?.name}? They will not be able to login.`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>No, Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDisable} disabled={actionLoading} className={disableStudent?.is_disabled ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'}>
+                {actionLoading ? 'Processing...' : `Yes, ${disableStudent?.is_disabled ? 'Enable' : 'Disable'}`}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   )

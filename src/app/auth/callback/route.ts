@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const response = NextResponse.redirect(`${origin}${next}`)
-    
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -29,10 +29,41 @@ export async function GET(request: NextRequest) {
     )
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (error) return NextResponse.redirect(`${origin}/login?error=exchange_failed`)
 
-    if (!error) {
-      return response
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user?.email) {
+      await supabase.auth.signOut()
+      return NextResponse.redirect(`${origin}/login?error=no_user`)
     }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_active')
+      .eq('email', user.email)
+      .maybeSingle()
+
+    if (!profile) {
+      await supabase.auth.signOut()
+      return NextResponse.redirect(`${origin}/login?error=not_registered`)
+    }
+    if (!profile.is_active) {
+      await supabase.auth.signOut()
+      return NextResponse.redirect(`${origin}/login?error=inactive`)
+    }
+
+    const { data: student } = await supabase
+      .from('students')
+      .select('is_disabled')
+      .eq('email', user.email)
+      .maybeSingle()
+
+    if (student?.is_disabled) {
+      await supabase.auth.signOut()
+      return NextResponse.redirect(`${origin}/login?error=disabled`)
+    }
+
+    return response
   }
 
   return NextResponse.redirect(`${origin}/login`)
