@@ -5,10 +5,6 @@ export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url)
   const code = searchParams.get('code')
 
-  if (!code) {
-    return NextResponse.redirect(`${origin}/login?error=no_code`)
-  }
-
   let redirectPath = '/dashboards/admin'
   const tempResponse = NextResponse.redirect(`${origin}${redirectPath}`)
 
@@ -30,17 +26,20 @@ export async function GET(req: NextRequest) {
     }
   )
 
-  // Step 1: Exchange code for session
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-  if (exchangeError) {
-    console.error('Code exchange failed:', exchangeError.message)
-    return NextResponse.redirect(`${origin}/login?error=exchange_failed`)
+  // Step 1: Exchange code for session (if present).
+  // Some flows may arrive without code but with an existing valid session cookie.
+  if (code) {
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+    if (exchangeError) {
+      console.error('Code exchange failed:', exchangeError.message)
+      return NextResponse.redirect(`${origin}/login?error=exchange_failed`)
+    }
   }
 
   // Step 2: Get authenticated user
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return NextResponse.redirect(`${origin}/login?error=no_user`)
+    return NextResponse.redirect(`${origin}/login?error=${code ? 'no_user' : 'no_code'}`)
   }
 
   // Step 3: Check students table FIRST — before the profile is_active check.
@@ -65,36 +64,48 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Step 4: Check profile exists
+  // Step 4: Check profile (optional for student/teacher in current schema)
   const { data: profile } = await supabase
     .from('profiles')
     .select('is_active, role_id')
     .eq('email', user.email)
     .maybeSingle()
 
-  if (!profile) {
-    await supabase.auth.signOut()
-    return NextResponse.redirect(`${origin}/login?error=not_registered`)
-  }
-
-  // Step 5: Check profile is_active (admin-level deactivation, not student disable)
-  if (!profile.is_active) {
+  // If profile exists and is inactive, block login.
+  if (profile && !profile.is_active) {
     await supabase.auth.signOut()
     return NextResponse.redirect(`${origin}/login?error=inactive`)
   }
 
-  // Step 6: Get role name and route
-  const { data: role } = await supabase
-    .from('roles')
-    .select('name')
-    .eq('id', profile.role_id)
-    .single()
+  // Step 5: Resolve role and redirect.
+  // Priority:
+  // 1) profile role (if present)
+  // 2) students table
+  // 3) teachers table
+  if (profile?.role_id) {
+    const { data: role } = await supabase
+      .from('roles')
+      .select('name')
+      .eq('id', profile.role_id)
+      .single()
 
-  const roleName = role?.name?.toLowerCase() ?? ''
+    const roleName = role?.name?.toLowerCase() ?? ''
+    if (roleName === 'student') redirectPath = '/dashboards/student'
+    else if (roleName === 'teacher') redirectPath = '/dashboards/teacher'
+    else if (roleName === 'admin' || roleName === 'super_admin') redirectPath = '/dashboards/admin'
+  } else {
+    const [{ data: studentRow }, { data: teacherRow }] = await Promise.all([
+      supabase.from('students').select('id').eq('email', user.email).maybeSingle(),
+      supabase.from('teachers').select('id').eq('email', user.email).maybeSingle(),
+    ])
 
-  if (roleName === 'student')                              redirectPath = '/dashboards/student'
-  else if (roleName === 'teacher')                         redirectPath = '/dashboards/teacher'
-  else if (roleName === 'admin' || roleName === 'super_admin') redirectPath = '/dashboards/admin'
+    if (studentRow) redirectPath = '/dashboards/student'
+    else if (teacherRow) redirectPath = '/dashboards/teacher'
+    else {
+      await supabase.auth.signOut()
+      return NextResponse.redirect(`${origin}/login?error=not_registered`)
+    }
+  }
 
   // Build final redirect with session cookies copied over
   const finalResponse = NextResponse.redirect(`${origin}${redirectPath}`)

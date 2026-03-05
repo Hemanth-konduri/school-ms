@@ -8,8 +8,6 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get('next') ?? '/dashboards/admin'
 
   if (code) {
-    const response = NextResponse.redirect(`${origin}${next}`)
-
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -19,10 +17,10 @@ export async function GET(request: NextRequest) {
             return request.cookies.get(name)?.value
           },
           set(name: string, value: string, options: any) {
-            response.cookies.set({ name, value, ...options })
+            void name; void value; void options
           },
           remove(name: string, options: any) {
-            response.cookies.set({ name, value: '', ...options })
+            void name; void options
           },
         },
       }
@@ -43,27 +41,37 @@ export async function GET(request: NextRequest) {
       .eq('email', user.email)
       .maybeSingle()
 
-    if (!profile) {
-      await supabase.auth.signOut()
-      return NextResponse.redirect(`${origin}/login?error=not_registered`)
-    }
-    if (!profile.is_active) {
+    if (profile && !profile.is_active) {
       await supabase.auth.signOut()
       return NextResponse.redirect(`${origin}/login?error=inactive`)
     }
 
-    const { data: student } = await supabase
-      .from('students')
-      .select('is_disabled')
-      .eq('email', user.email)
-      .maybeSingle()
+    const [{ data: student }, { data: teacher }] = await Promise.all([
+      supabase
+        .from('students')
+        .select('is_disabled')
+        .eq('email', user.email)
+        .maybeSingle(),
+      supabase
+        .from('teachers')
+        .select('id')
+        .eq('email', user.email)
+        .maybeSingle(),
+    ])
 
     if (student?.is_disabled) {
       await supabase.auth.signOut()
       return NextResponse.redirect(`${origin}/login?error=disabled`)
     }
 
-    return response
+    // If no profile and not present in students/teachers, block.
+    if (!profile && !student && !teacher) {
+      await supabase.auth.signOut()
+      return NextResponse.redirect(`${origin}/login?error=not_registered`)
+    }
+
+    const target = student ? '/dashboards/student' : teacher ? '/dashboards/teacher' : next
+    return NextResponse.redirect(`${origin}${target}`)
   }
 
   return NextResponse.redirect(`${origin}/login`)
