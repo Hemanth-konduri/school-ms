@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import {
@@ -10,7 +10,7 @@ import {
   Building2, Layers, MapPin, User, Mail, Phone, Droplet,
   Coffee, Sun, Sunset, Moon, CheckCircle2, Library,
   Megaphone, PenSquare, FlaskConical, Trophy, Wallet,
-  CalendarCheck, MessageSquare, Sunrise
+  CalendarCheck, MessageSquare, Sunrise, Camera, AlertCircle, X
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -109,12 +109,65 @@ export default function StudentDashboard() {
   const [weekEvs, setWeekEvs] = useState<ClassEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState<Date | null>(null)
+  const [activeSession, setActiveSession] = useState<any>(null)
+  const [marking, setMarking] = useState(false)
+  const [attendanceMarked, setAttendanceMarked] = useState(false)
+  const [showCaptureModal, setShowCaptureModal] = useState(false)
+  const [capturePreview, setCapturePreview] = useState<string | null>(null)
+  const [captureBlob, setCaptureBlob] = useState<Blob | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
   useEffect(() => {
     setNow(new Date())
     const t = setInterval(() => setNow(new Date()), 30000)
     return () => clearInterval(t)
   }, [])
+
+  useEffect(() => {
+    if (!profile?.id || !profile?.batch_id || todayEvs.length === 0 || !now) return
+
+    async function checkActiveSession() {
+      const studentId = profile?.id
+      if (!studentId) return
+      const nowIso = new Date().toISOString()
+      const { data: sessions } = await supabase
+        .from('teacher_attendance_sessions')
+        .select('*')
+        .eq('batch_id', profile!.batch_id!)
+        .gt('student_window_ends_at', nowIso)
+        .order('marked_at', { ascending: false })
+        .limit(1)
+
+      const session = sessions?.[0]
+      if (!session) {
+        setActiveSession(null)
+        setAttendanceMarked(false)
+        return
+      }
+
+      const sessionClass = todayEvs.find(e => e.id === session.event_id)
+      if (!sessionClass) {
+        setActiveSession(null)
+        setAttendanceMarked(false)
+        return
+      }
+
+      const { data: record } = await supabase
+        .from('student_attendance_records')
+        .select('id')
+        .eq('event_id', session.event_id)
+        .eq('student_id', studentId)
+        .maybeSingle()
+
+      setActiveSession(session)
+      setAttendanceMarked(!!record)
+    }
+
+    checkActiveSession()
+    const interval = setInterval(checkActiveSession, 10000)
+    return () => clearInterval(interval)
+  }, [profile, todayEvs, now])
 
   useEffect(() => {
     async function init() {
@@ -130,11 +183,8 @@ export default function StudentDashboard() {
         .eq('email', user.email)
         .single()
 
-      console.log('Query result:', { student, error, userEmail: user.email })
-      if (error) { console.error('Student fetch error:', error); setLoading(false); return }
-      if (!student) { console.log('No student record found'); setLoading(false); return }
-
-      console.log('Student dashboard:', student)
+      if (error) { console.error('Student fetch failed:', error); setLoading(false); return }
+      if (!student) { setLoading(false); return }
       setProfile({
         id: student.id, name: student.name || user.email?.split('@')[0] || 'Student',
         email: student.email || user.email || '', phone: student.phone,
@@ -150,28 +200,170 @@ export default function StudentDashboard() {
   async function loadTT(bid: string) {
     const ws = weekMon(new Date())
     const we = new Date(ws); we.setDate(ws.getDate() + 6); we.setHours(23,59,59)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('timetable_events')
-      .select(`id,start_time,end_time,room,event_type,status,
-        subjects(name,code),teachers(name),lesson_topics(topic_title)`)
+      .select(`id,subject_id,teacher_id,start_time,end_time,room,event_type,status,notes`)
       .eq('batch_id', bid).neq('status','cancelled')
       .gte('start_time', ws.toISOString()).lte('end_time', we.toISOString())
       .order('start_time')
+    if (error) {
+      console.error('Timetable fetch failed')
+      setTodayEvs([])
+      setWeekEvs([])
+      return
+    }
     if (!data) return
-    const mapped: ClassEvent[] = data.map((e: any) => ({
-      id: e.id, subject: e.subjects?.name || 'Class', subjectCode: e.subjects?.code || null,
-      teacher: e.teachers?.name || '', room: e.room || null,
-      eventType: e.event_type || 'lecture',
-      start: new Date(e.start_time), end: new Date(e.end_time),
-      lessonTopic: e.lesson_topics?.topic_title || null
-    }))
+
+    const subjectIds = Array.from(new Set(data.map((e: any) => e.subject_id).filter(Boolean)))
+    const teacherIds = Array.from(new Set(data.map((e: any) => e.teacher_id).filter(Boolean)))
+    const eventIds = data.map((e: any) => e.id).filter(Boolean)
+
+    const [subjectsRes, teachersRes, lessonsRes] = await Promise.all([
+      subjectIds.length
+        ? supabase.from('subjects').select('id,name,code').in('id', subjectIds)
+        : Promise.resolve({ data: [], error: null } as any),
+      teacherIds.length
+        ? supabase.from('teachers').select('id,name').in('id', teacherIds)
+        : Promise.resolve({ data: [], error: null } as any),
+      eventIds.length
+        ? supabase.from('lesson_topics').select('event_id,topic_title').in('event_id', eventIds)
+        : Promise.resolve({ data: [], error: null } as any),
+    ])
+
+    if (subjectsRes.error || teachersRes.error || lessonsRes.error) {
+      console.error('Timetable metadata lookup failed')
+    }
+
+    const subjectById = new Map<string, { name?: string; code?: string }>(
+      (subjectsRes.data || []).map((s: any) => [s.id, s])
+    )
+    const teacherById = new Map<string, { name?: string }>(
+      (teachersRes.data || []).map((t: any) => [t.id, t])
+    )
+    const lessonByEventId = new Map<string, { topic_title?: string }>(
+      (lessonsRes.data || []).map((l: any) => [l.event_id, l])
+    )
+
+    const mapped: ClassEvent[] = data.map((e: any) => {
+      const subjectFromId = e.subject_id ? subjectById.get(e.subject_id) : null
+      const teacherFromId = e.teacher_id ? teacherById.get(e.teacher_id) : null
+      const lesson = lessonByEventId.get(e.id) || null
+      const lessonTopic = lesson?.topic_title?.trim() || null
+      const fallbackTopic = typeof e.notes === 'string' && e.notes.trim() ? e.notes.trim() : null
+
+      return {
+        id: e.id,
+        subject: subjectFromId?.name?.trim() || e.subject_name || lessonTopic || fallbackTopic || 'Scheduled Class',
+        subjectCode: subjectFromId?.code || null,
+        teacher: teacherFromId?.name?.trim() || e.teacher_name || 'Lecturer TBD',
+        room: e.room || null,
+        eventType: e.event_type || 'lecture',
+        start: new Date(e.start_time),
+        end: new Date(e.end_time),
+        lessonTopic: lessonTopic || fallbackTopic
+      }
+    })
     setTodayEvs(mapped.filter(e => sameDay(e.start, new Date())))
     setWeekEvs(mapped)
+  }
+
+  const openCaptureModal = async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        alert('Camera API not available in this browser.')
+        return
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+      streamRef.current = stream
+      setCaptureBlob(null)
+      if (capturePreview) URL.revokeObjectURL(capturePreview)
+      setCapturePreview(null)
+      setShowCaptureModal(true)
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          videoRef.current.play().catch(() => null)
+        }
+      }, 30)
+    } catch {
+      alert('Camera permission denied.')
+    }
+  }
+
+  const closeCaptureModal = () => {
+    if (capturePreview) URL.revokeObjectURL(capturePreview)
+    setShowCaptureModal(false)
+    setCaptureBlob(null)
+    setCapturePreview(null)
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+  }
+
+  const captureStudentPhoto = async () => {
+    if (!videoRef.current) return
+    const video = videoRef.current
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth || 1280
+    canvas.height = video.videoHeight || 720
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((b) => b ? resolve(b) : reject(new Error('Encoding failed')), 'image/jpeg', 0.9)
+    })
+    if (capturePreview) URL.revokeObjectURL(capturePreview)
+    setCaptureBlob(blob)
+    setCapturePreview(URL.createObjectURL(blob))
+  }
+
+  const markAttendance = async () => {
+    if (!profile?.id || !activeSession || !captureBlob) return
+
+    try {
+      setMarking(true)
+      const ts = new Date().toISOString().replace(/[:.]/g, '-')
+      const path = `student/${profile.id}/${activeSession.event_id}/${ts}.jpg`
+
+      const { error: uploadError } = await supabase.storage
+        .from('attendance-proofs')
+        .upload(path, captureBlob, { contentType: 'image/jpeg', upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: signed } = await supabase.storage
+        .from('attendance-proofs')
+        .createSignedUrl(path, 60 * 60 * 24 * 7)
+
+      const { error: recordError } = await supabase
+        .from('student_attendance_records')
+        .upsert({
+          event_id: activeSession.event_id,
+          student_id: profile.id,
+          batch_id: profile.batch_id,
+          status: 'present',
+          photo_path: path,
+          photo_url: signed?.signedUrl || null
+        }, { onConflict: 'event_id,student_id' })
+
+      if (recordError) throw recordError
+
+      setAttendanceMarked(true)
+      closeCaptureModal()
+      alert('Attendance marked successfully!')
+    } catch (err) {
+      alert('Failed to mark attendance. Please try again.')
+      console.error(err)
+    } finally {
+      setMarking(false)
+    }
   }
 
   const signOut = async () => { await supabase.auth.signOut(); router.replace('/login') }
 
   const live = now ? todayEvs.find(e => e.start <= now && e.end >= now) : undefined
+  const bannerClass = live || (activeSession ? todayEvs.find(e => e.id === activeSession.event_id) : undefined)
   const next = now ? todayEvs.find(e => e.start > now) : undefined
   const ws = weekMon(now || new Date())
   const days7 = Array.from({ length: 7 }, (_, i) => { const d = new Date(ws); d.setDate(ws.getDate() + i); return d })
@@ -328,30 +520,59 @@ export default function StudentDashboard() {
             </div>
           </section>
 
-          {/* ── Live class banner ─────────────────── */}
-          {live && (
+          {/* Live class banner */}
+          {bannerClass && (
             <div className="mb-5 s2">
-              <div className="flex items-center gap-4 px-5 py-3.5"
-                style={{background:`linear-gradient(135deg,${EV[live.eventType]?.bg},white)`,border:`1.5px solid ${EV[live.eventType]?.dot}30`,boxShadow:`0 4px 20px ${EV[live.eventType]?.dot}18`}}>
-                <div className="w-1 self-stretch" style={{background:EV[live.eventType]?.dot}}/>
-                <div className="flex items-center gap-2">
-                  <Pulse/>
-                  <span className="text-[11px] font-black uppercase tracking-wider" style={{color:EV[live.eventType]?.dot}}>Live Now</span>
+              <div className="overflow-hidden"
+                style={{background:`linear-gradient(135deg,${EV[bannerClass.eventType]?.bg},white)`,border:`1.5px solid ${EV[bannerClass.eventType]?.dot}30`,boxShadow:`0 4px 20px ${EV[bannerClass.eventType]?.dot}18`}}>
+                <div className="flex items-center gap-4 px-5 py-3.5">
+                  <div className="w-1 self-stretch" style={{background:EV[bannerClass.eventType]?.dot}}/>
+                  <div className="flex items-center gap-2">
+                    <Pulse/>
+                    <span className="text-[11px] font-black uppercase tracking-wider" style={{color:EV[bannerClass.eventType]?.dot}}>Live Now</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-bold text-gray-800 text-sm">{bannerClass.subject}</span>
+                    <span className="text-gray-400 text-sm mx-2">·</span>
+                    <span className="text-gray-500 text-sm">{t12(bannerClass.start)} – {t12(bannerClass.end)}</span>
+                    <span className="text-gray-400 text-sm"> · {bannerClass.teacher}</span>
+                    {bannerClass.room && <span className="text-gray-400 text-sm"> · {bannerClass.room}</span>}
+                  </div>
+                  <div className="text-[10px] font-black capitalize px-2.5 py-1"
+                    style={{background:EV[bannerClass.eventType]?.chip,color:EV[bannerClass.eventType]?.txt}}>
+                    {bannerClass.eventType}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <span className="font-bold text-gray-800 text-sm">{live.subject}</span>
-                  <span className="text-gray-400 text-sm mx-2">·</span>
-                  <span className="text-gray-500 text-sm">{t12(live.start)} – {t12(live.end)}</span>
-                  {live.room && <span className="text-gray-400 text-sm"> · {live.room}</span>}
-                </div>
-                <div className="text-[10px] font-black capitalize px-2.5 py-1"
-                  style={{background:EV[live.eventType]?.chip,color:EV[live.eventType]?.txt}}>
-                  {live.eventType}
-                </div>
+
+                {activeSession && !attendanceMarked && (
+                  <div className="flex items-center gap-3 px-5 py-3 border-t"
+                    style={{background:'linear-gradient(135deg,#FEF3C7,#FDE68A)',borderColor:'#F59E0B'}}>
+                    <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0"/>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-gray-800 text-xs">Mark Your Attendance</div>
+                      <div className="text-[10px] text-gray-600 mt-0.5">Teacher opened window - verify with camera</div>
+                    </div>
+                    <button onClick={openCaptureModal} disabled={marking}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors disabled:opacity-50 flex-shrink-0">
+                      <Camera className="h-3.5 w-3.5"/>
+                      {marking ? 'Capturing...' : 'Mark Now'}
+                    </button>
+                  </div>
+                )}
+
+                {activeSession && attendanceMarked && (
+                  <div className="flex items-center gap-3 px-5 py-2.5 border-t"
+                    style={{background:'linear-gradient(135deg,#D1FAE5,#A7F3D0)',borderColor:'#10B981'}}>
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0"/>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-gray-800 text-xs">Attendance Marked</div>
+                      <div className="text-[10px] text-gray-600 mt-0.5">Your presence recorded</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
-
           {/* ══════════════════════════════════════════
               TIMETABLE
           ══════════════════════════════════════════ */}
@@ -451,14 +672,12 @@ export default function StudentDashboard() {
                             <span className="font-medium">{ev.teacher}</span>
                             {ev.room&&<span className="text-gray-400"> • {ev.room}</span>}
                           </div>
-                          {ev.lessonTopic && (
-                            <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1" style={{background:c.bg}}>
-                              <BookMarked className="h-3 w-3 flex-shrink-0" style={{color:c.dot}}/>
-                              <span className="text-[10px] font-medium truncate" style={{color:c.txt}}>
-                                {ev.lessonTopic}
-                              </span>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1" style={{background:c.bg}}>
+                            <BookMarked className="h-3 w-3 flex-shrink-0" style={{color:c.dot}}/>
+                            <span className="text-[10px] font-medium truncate" style={{color:c.txt}}>
+                              {ev.lessonTopic || 'Topic will be updated'}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Type badge */}
@@ -551,6 +770,43 @@ export default function StudentDashboard() {
             </div>
           </section>
 
+          {showCaptureModal && (
+            <div className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-4">
+              <div className="w-full max-w-md bg-white border border-gray-200 shadow-2xl">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                  <div className="font-bold text-gray-800 text-sm">Mark Your Attendance</div>
+                  <button onClick={closeCaptureModal} className="p-1 text-gray-400 hover:text-gray-700">
+                    <X className="h-4 w-4"/>
+                  </button>
+                </div>
+                <div className="p-4">
+                  {!capturePreview ? (
+                    <video ref={videoRef} className="w-full h-56 object-cover bg-black" autoPlay muted playsInline />
+                  ) : (
+                    <img src={capturePreview} alt="Attendance proof" className="w-full h-56 object-cover border border-gray-100" />
+                  )}
+                  <div className="mt-3 flex gap-2">
+                    {!capturePreview && (
+                      <button onClick={captureStudentPhoto} className="px-3 py-2 bg-indigo-600 text-white text-xs font-bold">
+                        Capture Photo
+                      </button>
+                    )}
+                    {capturePreview && (
+                      <button
+                        onClick={() => { if (capturePreview) URL.revokeObjectURL(capturePreview); setCapturePreview(null); setCaptureBlob(null) }}
+                        className="px-3 py-2 bg-gray-100 text-gray-700 text-xs font-bold">
+                        Retake
+                      </button>
+                    )}
+                    <button onClick={markAttendance} disabled={!captureBlob || marking}
+                      className="px-3 py-2 bg-emerald-600 text-white text-xs font-bold disabled:opacity-50">
+                      {marking ? 'Saving...' : 'Mark Attendance'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Footer */}
           <div className="mt-12 flex items-center justify-between text-[11px] text-gray-300">
             <span>© {new Date().getFullYear()} {profile?.batches?.programs?.schools?.name||'Student Portal'}</span>
@@ -561,3 +817,7 @@ export default function StudentDashboard() {
     </>
   )
 }
+
+
+
+

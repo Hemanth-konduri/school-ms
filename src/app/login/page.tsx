@@ -37,6 +37,8 @@ function getErrorFromParams(): { message: string; isDisabled: boolean } {
     exchange_failed: 'Authentication failed. Please try again.',
     no_code:         'Invalid login link. Please try signing in again.',
     no_user:         'Could not retrieve your account. Please try again.',
+    server_error:    'Your account is not registered in the system. Please contact your administrator to register your email first.',
+    unexpected_failure: 'Your account is not registered in the system. Please contact your administrator to register your email first.',
   }
 
   return { message: MAP[code] ?? 'An unexpected error occurred.', isDisabled: false }
